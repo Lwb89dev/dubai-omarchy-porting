@@ -14,9 +14,11 @@ if [[ ! -d $STAGE/.git ]]; then
     git clone --shared --no-checkout "$UPSTREAM" "$STAGE"
 fi
 git -C "$STAGE" checkout --detach "$COMMIT"
-rm -rf "$STAGE/device/dubai" "$STAGE/packages/omamobile-device-dubai"
+rm -rf "$STAGE/device/dubai" "$STAGE/packages/omamobile-device-dubai" \
+    "$STAGE/packages/omamobile-ucm-dubai"
 cp -a "$ROOT/device/dubai" "$STAGE/device/dubai"
 cp -a "$ROOT/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-device-dubai"
+cp -a "$ROOT/packages/omamobile-ucm-dubai" "$STAGE/packages/omamobile-ucm-dubai"
 cp "$ROOT/rootfs/packages.base" "$ROOT/rootfs/packages.omamobile" "$STAGE/rootfs/"
 echo "Prepared $STAGE at Omarchy Mobile $COMMIT"
 [[ $MODE == --prepare-only ]] && exit 0
@@ -59,5 +61,5 @@ for package in repo.glob('*.pkg.tar.*'):
         package.unlink()
         package.with_name(package.name + '.sig').unlink(missing_ok=True)
 PY
-tools/build-packages --local dubai packages/omamobile-device-dubai
+tools/build-packages --local dubai packages/omamobile-device-dubai packages/omamobile-ucm-dubai
 tools/build-rootfs --local dubai --channel local
