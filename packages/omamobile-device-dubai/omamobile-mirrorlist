@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Local channel for this independent port; no maintainer key is assumed.
+Server = file:///var/lib/omamobile/repo/$arch
+# Server = https://pkgs.omamobile.org/development/$arch
+# Server = https://pkgs.omamobile.org/stable/$arch

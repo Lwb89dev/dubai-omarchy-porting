@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT
+name: offline-build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions: contents:read
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: tests/static.sh
+      - run: scripts/fetch-sources.sh
+      - run: scripts/build-rootfs.sh --prepare-only
+
+  kernel-initramfs:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/fetch-sources.sh
+      - run: docker build -f docker/Dockerfile.kernel -t dubai-kernel-builder:24.04 docker
+      - run: docker run --rm -e HOME=/tmp -e JOBS=4 -v "$PWD:$PWD" -w "$PWD" dubai-kernel-builder:24.04 scripts/build-kernel.sh
+      - run: scripts/build-initramfs.sh
+      - run: scripts/validate-dtbs.sh
+      - run: scripts/verify-images.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dubai-offline-artifacts
+          path: |
+            out/kernel/arch/arm64/boot/Image*
+            out/kernel/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-*.dtb
+            out/kernel/config.final
+            out/kernel/SHA256SUMS
+            out/kernel/modules-*.tar.zst
+            out/initramfs/initramfs-dubai.cpio.gz
+            out/initramfs/SHA256SUMS
+          if-no-files-found: error

@@ -1,0 +1,144 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# RAM-only Motorola dubai diagnostic init. Never mounts or writes storage.
+
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PS1='dubai-rescue# '
+
+say() {
+    echo "dubai-init: $*" | tee /dev/kmsg
+}
+
+fail_closed_shell() {
+    say "$*; remaining in RAM with storage read-only"
+    while true; do
+        setsid -c sh </dev/tty1 >/dev/tty1 2>&1
+        sleep 1
+    done
+}
+
+mount -t proc proc /proc || fail_closed_shell "cannot mount proc"
+mount -t sysfs sysfs /sys || fail_closed_shell "cannot mount sysfs"
+mount -t devtmpfs devtmpfs /dev || fail_closed_shell "cannot mount devtmpfs"
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+mount -t tmpfs tmpfs /run
+mkdir -p /run/diagnostics
+mount -t configfs configfs /sys/kernel/config 2>/dev/null || true
+
+# All UFS/SCSI disks and partitions stay read-only. There is no allowlist.
+storage_ro_pass() {
+    local node
+    for node in /dev/sd[a-z] /dev/sd[a-z][0-9]*; do
+        [ -b "$node" ] || continue
+        blockdev --setro "$node" 2>/dev/null || say "FAILED to set $node read-only"
+    done
+}
+storage_ro_pass
+(while true; do storage_ro_pass; sleep 1; done) &
+
+hostname dubai-rescue
+board=$(tr '\0' '\n' </proc/device-tree/compatible 2>/dev/null | head -n 1)
+if [ "$board" != "motorola,dubai" ]; then
+    fail_closed_shell "unexpected board '${board:-unknown}'"
+fi
+
+collect_diagnostics() {
+    uname -a >/run/diagnostics/uname.txt
+    cat /proc/cmdline >/run/diagnostics/cmdline.txt
+    cat /proc/device-tree/model >/run/diagnostics/model.txt 2>/dev/null
+    dmesg >/run/diagnostics/dmesg.txt
+    cat /proc/partitions >/run/diagnostics/partitions.txt
+    ls -l /dev/disk/by-partlabel >/run/diagnostics/partition-labels.txt 2>/dev/null || true
+    cp /proc/device-tree/compatible /run/diagnostics/compatible.txt 2>/dev/null || true
+}
+release=$(cat /proc/sys/kernel/osrelease)
+if [ -d "/usr/lib/modules/$release" ]; then
+    for module in evdev spi-geni-qcom panel-novatek-nt37701 goodix_berlin_core goodix_berlin_spi; do
+        modprobe "$module" 2>/dev/null || say "module $module not loaded"
+    done
+fi
+
+collect_diagnostics
+say "Linux $release on $(cat /proc/device-tree/model 2>/dev/null)"
+
+# CDC NCM plus an ACM shell. No storage gadget is ever created.
+gadget=/sys/kernel/config/usb_gadget/g1
+setup_usb() {
+    mkdir -p "$gadget/strings/0x409" "$gadget/configs/c.1/strings/0x409"
+    echo 0x1d6b >"$gadget/idVendor"
+    echo 0x0104 >"$gadget/idProduct"
+    echo "Omarchy Mobile" >"$gadget/strings/0x409/manufacturer"
+    echo "Motorola Edge 30 diagnostic" >"$gadget/strings/0x409/product"
+    echo "dubai-rescue" >"$gadget/strings/0x409/serialnumber"
+    echo "NCM + ACM" >"$gadget/configs/c.1/strings/0x409/configuration"
+    mkdir -p "$gadget/functions/ncm.usb0" "$gadget/functions/acm.GS0"
+    ln -s "$gadget/functions/ncm.usb0" "$gadget/configs/c.1/"
+    ln -s "$gadget/functions/acm.GS0" "$gadget/configs/c.1/"
+
+    local udc attempt
+    for attempt in $(seq 1 30); do
+        udc=$(ls /sys/class/udc 2>/dev/null | head -n 1)
+        [ -n "$udc" ] && break
+        sleep 1
+    done
+    if [ -z "$udc" ]; then
+        say "no USB device controller; diagnostics remain on the local console"
+        return 1
+    fi
+    echo "$udc" >"$gadget/UDC" || return 1
+    say "USB gadget bound to $udc"
+}
+if setup_usb; then
+    ip link set lo up
+    for attempt in $(seq 1 10); do
+        [ -d /sys/class/net/usb0 ] && break
+        sleep 1
+    done
+    if ip addr add 172.16.42.1/24 dev usb0 2>/dev/null; then
+        ip link set usb0 up
+        if [ -s /root/.ssh/authorized_keys ]; then
+            dropbear -R -E -s -g -p 22 2>/dev/null && say "SSH available at 172.16.42.1 (public key only)"
+        else
+            say "no SSH public key packed; use the USB serial shell"
+        fi
+    else
+        say "usb0 did not appear; no network diagnostics available"
+    fi
+    (while true; do setsid getty -n -l /bin/sh 115200 ttyGS0 vt100; sleep 1; done) &
+    console_loop_pid=$!
+fi
+
+if [ -s /etc/omamobile-nbd-server ]; then
+    nbd_server=$(cat /etc/omamobile-nbd-server)
+    modprobe nbd 2>/dev/null || say "module nbd not loaded"
+    nbd_ready=false
+    for attempt in $(seq 1 90); do
+        if nbd-client "$nbd_server" -N omamobile /dev/nbd0; then
+            nbd_size=$(blockdev --getsize64 /dev/nbd0 2>/dev/null || echo 0)
+            if [ "$nbd_size" -gt 0 ]; then
+                nbd_ready=true
+                break
+            fi
+            nbd-client -d /dev/nbd0 2>/dev/null || true
+        fi
+        sleep 1
+    done
+    mkdir -p /newroot
+    if $nbd_ready && mount /dev/nbd0 /newroot; then
+        say "switching to Arch rootfs over USB NBD; internal storage remains read-only"
+        killall dropbear 2>/dev/null || true
+        kill "$console_loop_pid" 2>/dev/null || true
+        killall getty 2>/dev/null || true
+        exec switch_root /newroot /sbin/init
+    fi
+    say "NBD root unavailable; remaining in diagnostic shell"
+fi
+
+(sleep 5; collect_diagnostics; say "diagnostics refreshed in /run/diagnostics") &
+
+# Never exit PID 1 and never panic/reboot because USB is unavailable.
+while true; do
+    setsid -c sh </dev/tty1 >/dev/tty1 2>&1
+    sleep 1
+done

@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: MIT
+# Source: pmaports device-motorola-dubai 2-r0; sensor orientation only.
+SUBSYSTEM=="misc", KERNEL=="fastrpc-*", ENV{ACCEL_MOUNT_MATRIX}+="-1, 0, 0; 0, -1, 0; 0, 0, -1"

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# Hardware-independent Omarchy Mobile packages from the signed repository.
+# Mesa, Hyprland and libcamera come from Arch Linux ARM for this Adreno port.
+omamobile-keyring
+omamobile-firstboot
+omamobile-omarchy
+omamobile-shell
+omamobile-voice
+omacam
+omamobile-apps
+omaphone
+omamessages
+omatel-agent
+omamobile-mirror

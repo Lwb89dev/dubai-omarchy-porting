@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bc bison build-essential ca-certificates clang cpio curl flex gawk git \
+    gcc-aarch64-linux-gnu kmod libelf-dev libssl-dev lld llvm make pahole python3 rsync zstd \
+    && rm -rf /var/lib/apt/lists/*

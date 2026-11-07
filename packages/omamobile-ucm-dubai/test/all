@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+cd "$(dirname "$0")/.."
+bash -n PKGBUILD
+grep -q '_commit=3dbb936f0cc85a5d3f12bab12a4578d85768061c' PKGBUILD
+grep -q 'license=(BSD-3-Clause)' PKGBUILD
+if grep -q 'dummystreamhack' PKGBUILD; then
+  echo 'VoiceCall helper must not be pulled in without an Arch port' >&2
+  exit 1
+fi
+echo 'ok UCM package is pinned and has no untested VoiceCall helper dependency'

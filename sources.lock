@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+# type|name|URL|immutable revision or version|reference|SHA-256 (archives)
+git|omarchy-mobile|https://github.com/derekross/omarchy-mobile.git|cd90d193ac5b4056f877a96f6ec748d0998021c4|main|
+git|pmaports|https://gitlab.postmarketos.org/postmarketOS/pmaports.git|b14105484a206e3b84f26b6f950df436dbb0d414|master|
+git|linux-sc7280|https://github.com/sc7280-mainline/linux.git|0ccea71930dbc8e32344a41be96944db4215c3c3|v7.2.9-sc7280|
+git|android_device_motorola_dubai|https://github.com/LineageOS/android_device_motorola_dubai.git|03ff95e4b5f0ee44e6408f308fb9f8b17d051620|lineage-24.0|
+git|android_device_motorola_sm7325-common|https://github.com/LineageOS/android_device_motorola_sm7325-common.git|d0dc473dcf587183614483b1ac807e24d76e109f|lineage-24.0|
+git|android_kernel_motorola_sm7325|https://github.com/LineageOS/android_kernel_motorola_sm7325.git|4a129b915ff9feb9f42cfaf141724d814131f068|lineage-24.0|
+archive|alpine-minirootfs|https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.2-aarch64.tar.gz|3.24.2||9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
+reference|alsa-ucm-conf-qcom-sc7280|https://github.com/sc7280-mainline/alsa-ucm-conf.git|3dbb936f0cc85a5d3f12bab12a4578d85768061c||
+reference|firmware-motorola-dubai|https://github.com/FairBlobs/dubai-firmware.git|56c15ff4e81e6464983397bc93be3ae5f7cfcec4||proprietary; local private use only; a660_zap.mbn SHA-256 4620589b4c0a23e3d89a404083ca2a95350c7e57800bf756e0f692491f38ea9e
+reference|aosp-mkbootimg|https://android.googlesource.com/platform/system/tools/mkbootimg|4a27dd13adf9846e12d585d6fe99a375ebb58396||
+archive|omarchy-keyring|https://pkgs.omarchy.org/stable/aarch64/omarchy-keyring-20251027-1-any.pkg.tar.zst|20251027-1||cce48c07cfc2b97e198df1bc81705db2921685032fe39f18b4ddfd84264b5967
+archive|aquamarine-omarchy-edge|https://pkgs.omarchy.org/edge/aarch64/aquamarine-0.16.0-1.1-aarch64.pkg.tar.zst|0.16.0-1.1||997056ebc456afc2322cafc94382bf8bbc636b0c15b6c55c10c21eda28a22c7e
+archive|hyprland-omarchy-edge|https://pkgs.omarchy.org/edge/aarch64/hyprland-0.57.1-2-aarch64.pkg.tar.zst|0.57.1-2||3e8a17eecd26da3813bb731372da9f88060f3e04bb0f6fbad4a443a59249eece
+archive|nura-linux-postmarketos-qcom-sc7280|https://mirror.nura.eco/postmarketos/main/postmarketos/aarch64/linux-postmarketos-qcom-sc7280-7.2.9-r3.apk|7.2.9-r3||c504a4791b62faaab8ece3f62c5ab3eb8f84bba5a1cf950f338fa5f9b295f543
+archive|lineage-dubai-boot-control|https://mirrorbits.lineageos.org/full/dubai/20261009/boot.img|23.2-20261009||5bb34fdab4013cf430f6167440af78d4a620a7c6058043786964616460f397e1
+reference|linux-firmware-a660-sqe|https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qcom/a660_sqe.fw|host linux-firmware||d222f3fe290ef0516ee0ec43082596bad2df0fcbc2e0bbb26987623cef90cf76
+reference|linux-firmware-a660-gmu|https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/qcom/a660_gmu.bin|host linux-firmware||8acab7b417d9ebde89a1de9ae1e2c261d352fcab122e31ecd580cec9fe2ae5e7
