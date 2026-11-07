@@ -6,7 +6,7 @@ Aggiornato: 2026-11-07.
 ## Stato attuale
 
 - **Fase:** M0/M1 documentati; M2/M3 completati; **M4 raggiunto** con Arch/systemd/SSH/pacman su NBD; grafica accelerata, Hyprland e touch M5 verificati nella snapshot. Boot pulito e firstboot completo restano da verificare.
-- **Commit del porting:** repository Git locale `main`, non pubblicato; nessun commit creato in questo ciclo.
+- **Commit del porting:** branch `main` pubblicato su `https://github.com/Lwb89dev/dubai-omarchy-porting`; la revisione locale si legge con `git rev-parse HEAD`.
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
 - **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`.
 - **Arch Linux ARM:** rootfs `2026.11.07` con moduli LLVM; SHA-256 e smoke test passati.
