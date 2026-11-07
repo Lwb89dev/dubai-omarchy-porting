@@ -1,147 +1,147 @@
 <!-- SPDX-License-Identifier: MIT -->
-# Diario dei progressi
+# Progress log
 
-## 2026-11-06 — Avvio e ricognizione
+## 2026-11-06 — Start and reconnaissance
 
-- Avviato il primo ciclo M0 senza collegare o modificare il dispositivo.
-- Verificati gli strumenti host: Git, GCC/Clang, cross-compilatore AArch64, Docker, QEMU user-mode e ShellCheck presenti; 32 CPU e circa 393 GiB liberi.
-- Confermata dalla documentazione LineageOS la variante supportata XT2203-1 e l'hardware di riferimento SM7325-AE / Adreno 642L.
-- Analizzato il gist di installazione postmarketOS: il bootloader riporta la variante pannello; il flusso storico modifica `vbmeta`, `dtbo`, `boot` e `userdata`. Tali operazioni non saranno eseguite e non costituiscono il runbook del primo boot.
-- Iniziato il recupero dei repository upstream fissandone i commit in `sources.lock`.
+- Started the first M0 cycle without connecting or modifying the device.
+- Checked the host tools: Git, GCC/Clang, the AArch64 cross-compiler, Docker, QEMU user-mode, and ShellCheck are present; 32 CPUs and about 393 GiB free.
+- Confirmed from the LineageOS documentation the supported XT2203-1 variant and the reference hardware SM7325-AE / Adreno 642L.
+- Analyzed the postmarketOS installation gist: the bootloader reports the panel variant; the historical flow modifies `vbmeta`, `dtbo`, `boot`, and `userdata`. Those operations will not be performed and are not the first-boot runbook.
+- Started fetching the upstream repositories and pinning their commits in `sources.lock`.
 
-**Stato:** ricognizione in corso; nessun test hardware eseguito.
+**State:** reconnaissance in progress; no hardware test performed.
 
-## 2026-11-06 — Audit, progettazione e prime build
+## 2026-11-06 — Audit, design, and first builds
 
-- Clonati e fissati Omarchy Mobile, pmaports, il kernel SC7280 e i riferimenti LineageOS; creato `sources.lock`.
-- Identificato `linux-postmarketos-qcom-sc7280` 7.2.9-r3 e il tag `v7.2.9-sc7280`.
-- Verificate le differenze CSOT/Tianma nei DTS e nelle sequenze del driver NT37701.
-- Verificato che il DTS board è upstream da Torvalds v7.3-rc6, mentre il driver NT37701 e altre parti del porting restano fuori dal tree upstream considerato.
-- Creati `AUDIT.md`, `HARDWARE-MATRIX.md`, `BOOT-CHAIN.md`, `STORAGE-PLAN.md`, `RECOVERY-RUNBOOK.md`, `ROADMAP.md` e `BUILD.md`.
-- Implementati fetch, build kernel, initramfs, immagine panel-specifica non flashabile, verifiche, acquisizione read-only e CI offline.
-- Creata una initramfs RAM-only con storage interamente read-only, nessuno switch_root e nessun panic automatico.
-- Build initramfs **riuscita**; BusyBox AArch64 eseguito con QEMU e contenuto cpio verificato.
-- ShellCheck e test statici **riusciti**; verificato il rifiuto di build-images senza pannello valido.
-- Primo tentativo kernel fallito per il target `vmlinuz` non esistente; rimosso il target errato, conservato il log e rilanciata la build.
-- Creato `omamobile-device-dubai` senza blob o servizi hardware attivi e preparato con successo lo staging del builder Arch/Omarchy senza modificare il checkout upstream.
+- Cloned and pinned Omarchy Mobile, pmaports, the SC7280 kernel, and the LineageOS references; created `sources.lock`.
+- Identified `linux-postmarketos-qcom-sc7280` 7.2.9-r3 and the tag `v7.2.9-sc7280`.
+- Checked the CSOT/Tianma differences in the DTS files and in the NT37701 driver sequences.
+- Checked that the board DTS is upstream since Torvalds v7.3-rc6, while the NT37701 driver and other parts of the port remain outside the upstream tree that was considered.
+- Created `AUDIT.md`, `HARDWARE-MATRIX.md`, `BOOT-CHAIN.md`, `STORAGE-PLAN.md`, `RECOVERY-RUNBOOK.md`, `ROADMAP.md`, and `BUILD.md`.
+- Implemented fetch, kernel build, initramfs, a panel-specific image that must not be flashed, checks, read-only capture, and offline CI.
+- Created a RAM-only initramfs with storage entirely read-only, no switch_root, and no automatic panic.
+- Initramfs build **succeeded**; AArch64 BusyBox ran under QEMU and the cpio content was verified.
+- ShellCheck and static tests **succeeded**; verified that build-images rejects a build without a valid panel.
+- The first kernel attempt failed because the `vmlinuz` target does not exist; removed the wrong target, kept the log, and restarted the build.
+- Created `omamobile-device-dubai` with no blobs or active hardware services, and successfully prepared the Arch/Omarchy builder staging without modifying the upstream checkout.
 
-**Stato:** build kernel in corso; nessun test hardware, nessuna scrittura sul dispositivo.
+**State:** kernel build in progress; no hardware test, no write to the device.
 
-## 2026-11-06 — Completamento M2/M3 offline
+## 2026-11-06 — M2/M3 completed offline
 
-- Build kernel **riuscita**: `7.2.9-dubai+`, `Image` 33.831.424 byte, `Image.gz`, entrambi i DTB e archivio moduli.
-- Corretti in modo mirato il target kernel inesistente, il controllo della release e il percorso `usr/lib/modules`; aggiunto `kmod` per `depmod`.
-- `dtbs_check` **passato** per CSOT e Tianma con dtschema 2026.9.
-- Verificati i compatible board/pannello via libfdt e tutti gli SHA-256 degli artefatti.
-- Due build consecutive della initramfs hanno prodotto SHA-256 `674d8a2ae04e3c7cd4c6ac3f851d8d5b84411c425f82ec921c65e9fff643c1f9`: verifica di riproducibilità passata.
-- Verificati i database ALARM: sostituiti `iptables-nft` con `iptables` e `linux-firmware-qca` con `linux-firmware-atheros`, che contiene i path ath11k/WCN6750.
-- Preparato CI offline e inizializzato il repository Git locale `main`; nessun repository remoto creato.
-- Avviata la build rootfs Arch/Omarchy completa con il builder upstream in staging.
+- Kernel build **succeeded**: `7.2.9-dubai+`, `Image` of 33,831,424 bytes, `Image.gz`, both DTBs, and the module archive.
+- Fixed, in a targeted way, the nonexistent kernel target, the release check, and the `usr/lib/modules` path; added `kmod` for `depmod`.
+- `dtbs_check` **passed** for CSOT and Tianma with dtschema 2026.9.
+- Verified the board/panel compatibles through libfdt and every artifact SHA-256.
+- Two consecutive initramfs builds produced SHA-256 `674d8a2ae04e3c7cd4c6ac3f851d8d5b84411c425f82ec921c65e9fff643c1f9`: reproducibility check passed.
+- Checked the ALARM databases: replaced `iptables-nft` with `iptables` and `linux-firmware-qca` with `linux-firmware-atheros`, which contains the ath11k/WCN6750 paths.
+- Prepared offline CI and initialized the local Git repository `main`; no remote repository was created.
+- Started the full Arch/Omarchy rootfs build with the upstream builder in staging.
 
-**Stato:** M2 e M3 completati solo offline; nessun boot hardware eseguito o dichiarato.
+**State:** M2 and M3 completed offline only; no hardware boot performed or claimed.
 
-## 2026-11-06 — Rootfs e verifiche finali in corso
+## 2026-11-06 — Rootfs and final checks in progress
 
-- Verifica finale kernel/initramfs ripetuta con successo: 631 voci nel tarball moduli, inclusi NT37701 e Goodix Berlin; manifest ora con path relativi portabili.
-- `fetch-sources.sh` eseguito con successo su tutti i sei repository Git fissati.
-- Recuperati e verificati i due file AOSP `mkbootimg` fissati; nessuna boot image generata perché il pannello resta sconosciuto.
-- Verificato anche il repository Omarchy AArch64: `omarchy`, `omarchy-settings`, `omarchy-keyring` e `voxtype-bin` sono presenti; il builder rispetta il pin Omarchy 4.0.6 upstream.
-- Interrotto il download sequenziale di pacchetti Pixel non necessari. Implementato un fetch selettivo parallelo con verifica dell'indice firmato, chiavi fidate/revocate, SHA-256 e firma di ogni pacchetto.
-- **15 pacchetti dubai verificati** e importati nel repository pacman locale; download del tarball Arch Linux ARM in corso.
-- Controlli statici finali passati, inclusi PKGBUILD, test del device package e compilazione Python senza lasciare cache nel repository.
+- Repeated the final kernel/initramfs check successfully: 631 entries in the module tarball, including NT37701 and Goodix Berlin; the manifest now uses portable relative paths.
+- `fetch-sources.sh` succeeded on all six pinned Git repositories.
+- Fetched and verified the two pinned AOSP `mkbootimg` files; no boot image was generated because the panel is still unknown.
+- Also checked the Omarchy AArch64 repository: `omarchy`, `omarchy-settings`, `omarchy-keyring`, and `voxtype-bin` are present; the builder respects the upstream Omarchy 4.0.6 pin.
+- Stopped the sequential download of unnecessary Pixel packages. Implemented a selective parallel fetch that checks the signed index, trusted/revoked keys, SHA-256, and the signature of every package.
+- **15 dubai packages verified** and imported into the local pacman repository; Arch Linux ARM tarball download in progress.
+- Final static checks passed, including the PKGBUILD, the device-package test, and a Python compile that left no cache in the repository.
 
-**Stato:** rootfs in build; nessun dispositivo toccato.
+**State:** rootfs building; no device touched.
 
-## 2026-11-06 — Correzione della ripresa rootfs
+## 2026-11-06 — Rootfs resume fix
 
-- La prima build rootfs si è interrotta nel filtro post-import perché Python tarfile non apre i pacchetti zstd dell'host; sostituito con `bsdtar`.
-- Il tarball ALARM (791 MiB) è stato scaricato, verificato con MD5/firma dal codice upstream e importato come immagine Docker prima del fallimento successivo.
-- Integrato il download verificato del keyring pubblico Omarchy per host privi del pacchetto, fissato in `sources.lock`.
-- Ripresa la build dai pacchetti e dall'immagine già presenti, senza modifiche al telefono.
+- The first rootfs build stopped in the post-import filter because Python tarfile does not open the host's zstd packages; replaced it with `bsdtar`.
+- The ALARM tarball (791 MiB) was downloaded, checked with the MD5/signature from the upstream code, and imported as a Docker image before the next failure.
+- Integrated the verified download of the public Omarchy keyring for hosts that lack the package, pinned in `sources.lock`.
+- Resumed the build from the packages and image already present, with no changes to the phone.
 
-**Stato:** rootfs in build dopo correzione mirata.
+**State:** rootfs building after the targeted fix.
 
-- Verificato il fork UCM al commit fissato: include i profili dubai HiFi e VoiceCall; VoiceCall richiede `dummystreamhack`, quindi non viene dichiarato utilizzabile né integrato automaticamente.
+- Checked the UCM fork at the pinned commit: it includes the dubai HiFi and VoiceCall profiles; VoiceCall requires `dummystreamhack`, so it is neither declared usable nor integrated automatically.
 
-- Creato `packages/omamobile-ucm-dubai` con i tre profili fissati, licenza BSD-3-Clause e nessuna dipendenza VoiceCall non verificata; test statici e checksum SHA-512 dell'archivio passati. Non incluso nel primo rootfs né testato sull'hardware.
+- Created `packages/omamobile-ucm-dubai` with the three pinned profiles, the BSD-3-Clause license, and no unverified VoiceCall dependency; static tests and the archive SHA-512 checksum passed. Not included in the first rootfs and not tested on hardware.
 
-- `makepkg` ha prodotto `omamobile-device-dubai-0.1.0-1-aarch64.pkg.tar.zst`; contenuto ispezionato: solo descriptor, mirrorlist, regole rete/udev e licenza, senza blob o servizi hardware attivati.
+- `makepkg` produced `omamobile-device-dubai-0.1.0-1-aarch64.pkg.tar.zst`; inspected content: descriptor, mirrorlist, network/udev rules, and license only, with no blobs or activated hardware services.
 
-- Il primo `pacstrap` si è fermato perché ALARM Hyprland 0.57.1-1 non trovava le SONAME richieste. Analizzate le dipendenze reali invece di forzarle.
-- Selezionati dai binari Omarchy edge `hyprland-0.57.1-2` (libhyprgraphics 5) e `aquamarine-0.16.0-1.1` (libaquamarine 15), compatibili con gli altri pacchetti correnti; checksum e firme verificati, revisioni in `sources.lock`.
-- Ripresa la build rootfs senza ricompilare Hyprland e senza cambiare il pin Omarchy 4.0.6.
+- The first `pacstrap` stopped because ALARM Hyprland 0.57.1-1 could not find the required SONAMEs. The real dependencies were analyzed instead of being forced.
+- Selected from the Omarchy edge binaries `hyprland-0.57.1-2` (libhyprgraphics 5) and `aquamarine-0.16.0-1.1` (libaquamarine 15), compatible with the other current packages; checksums and signatures verified, revisions in `sources.lock`.
+- Resumed the rootfs build without rebuilding Hyprland and without changing the Omarchy 4.0.6 pin.
 
-- La prima installazione dei pacchetti Omarchy Mobile nel rootfs è fallita perché `neard` era stato escluso pur essendo una dipendenza obbligatoria di `omamobile-apps`. Ripristinato il pacchetto firmato generico; nessuna funzionalità NFC hardware viene dichiarata.
-- Riavviata la build con cache dei pacchetti esistente; log completo conservato in `out/rootfs/logs/build.log`.
+- The first installation of the Omarchy Mobile packages into the rootfs failed because `neard` had been excluded even though it is a mandatory dependency of `omamobile-apps`. Restored the signed generic package; no NFC hardware feature is claimed.
+- Restarted the build with the existing package cache; the full log is kept in `out/rootfs/logs/build.log`.
 
-## 2026-11-07 — Rootfs Arch/Omarchy completato offline
+## 2026-11-07 — Arch/Omarchy rootfs completed offline
 
-- Ripresa la build dai pacchetti e dall'immagine ALARM già presenti; nessun download o lavoro kernel ripetuto inutilmente.
-- Build rootfs **riuscita** in 15 minuti: `work/omarchy-dubai/out/dubai/omamobile-rootfs-dubai-2026.11.07-aarch64.img.zst` (3,4 GiB), con checksum SHA-256 verificato e manifest di 988 righe.
-- Il rootfs contiene Arch Linux ARM, systemd 262.1-1, Omarchy 4.0.6-1, Omarchy Mobile shell 0.2.100-1, Hyprland 0.57.1-2, Mesa 26.2.6-1 con Freedreno, il device package dubai e i moduli `7.2.9-dubai+`.
-- Smoke test upstream **passato**: filesystem ext4, keyring e repository, servizi di primo avvio, patch Omarchy, moduli, assenza di chiavi host/dati per-device e nessun servizio modem abilitato.
-- Verificati nuovamente kernel, entrambi i DTB, archivio moduli e initramfs; test statici passati.
+- Resumed the build from the packages and the ALARM image already present; no download or kernel work was repeated without need.
+- Rootfs build **succeeded** in 15 minutes: `work/omarchy-dubai/out/dubai/omamobile-rootfs-dubai-2026.11.07-aarch64.img.zst` (3.4 GiB), with a verified SHA-256 checksum and a 988-line manifest.
+- The rootfs contains Arch Linux ARM, systemd 262.1-1, Omarchy 4.0.6-1, Omarchy Mobile shell 0.2.100-1, Hyprland 0.57.1-2, Mesa 26.2.6-1 with Freedreno, the dubai device package, and the `7.2.9-dubai+` modules.
+- Upstream smoke test **passed**: ext4 filesystem, keyring and repository, first-boot services, Omarchy patches, modules, absence of host keys/per-device data, and no modem service enabled.
+- Kernel, both DTBs, the module archive, and the initramfs were checked again; static tests passed.
 
-**Stato:** M4 completato solo nella parte offline; nessun boot hardware, installazione o dichiarazione di funzionamento su dubai. Il prossimo gate resta l'acquisizione read-only di modello/pannello e il runbook autorizzato per il primo boot.
+**State:** M4 completed for the offline part only; no hardware boot, installation, or claim that dubai works. The next gate remains the read-only capture of model/panel and the authorized runbook for the first boot.
 
-## 2026-11-07 — Identificazione del dispositivo e boot image CSOT
+## 2026-11-07 — Device identification and CSOT boot image
 
-- Eseguita acquisizione ADB **solo read-only**, fuori dal repository: XT2203-1/dubai, LineageOS 23.2 nightly del 2026-05-29, slot `_b`, bootloader sbloccato.
-- Identificato senza reboot il pannello **CSOT NT37701** dalla cmdline Android; nessun seriale, MAC o altro identificativo è stato copiato nei documenti.
-- Corretto `capture-device-info.sh`: i nodi `/proc/device-tree` assenti su Android sono opzionali e non impediscono più il tentativo di cattura `dmesg`. Quest'ultimo resta non disponibile per permessi.
-- Generata offline `out/images/boot-dubai-csot-UNTESTED.img` (16 MiB), header Android v2 riconosciuto e SHA-256 verificato. Nessun comando fastboot o boot è stato eseguito.
-- Il portale LineageOS non elenca più la nightly installata e l'URL diretto restituisce 404; il gate del ripristino esatto resta aperto e il boot non viene proposto come sicuro.
+- Performed an ADB capture that was **read-only only**, outside the repository: XT2203-1/dubai, LineageOS 23.2 nightly from 2026-05-29, slot `_b`, unlocked bootloader.
+- Identified the **CSOT NT37701** panel from the Android cmdline without a reboot; no serial, MAC, or other identifier was copied into the documents.
+- Fixed `capture-device-info.sh`: `/proc/device-tree` nodes that are absent on Android are optional and no longer block the `dmesg` capture attempt. That capture remains unavailable because of permissions.
+- Generated `out/images/boot-dubai-csot-UNTESTED.img` offline (16 MiB), Android header v2 recognized and SHA-256 verified. No fastboot or boot command was run.
+- The LineageOS portal no longer lists the installed nightly and the direct URL returns 404; the exact-restore gate stays open and the boot is not proposed as safe.
 
-**Stato:** modello e pannello acquisiti, artefatto CSOT pronto solo offline; in attesa di recovery verificabile e autorizzazione specifica per una sessione fastboot read-only.
+**State:** model and panel captured, CSOT artifact ready offline only; waiting for a verifiable recovery and specific authorization for a read-only fastboot session.
 
-## 2026-11-07 — Cattura fastboot autorizzata
+## 2026-11-07 — Authorized fastboot capture
 
-- Eseguito il solo reboot autorizzato da Android ad ABL fastboot; nessun boot Linux, cambio slot o scrittura.
-- `getvar all` conferma prodotto/SKU, CSOT NT37701, bootloader sbloccato, 8 GB RAM, UFS 128 GB, slot `_b` e fastboot non-userspace.
-- Entrambi gli slot hanno retry 6 e successful yes, ma `_a` è anche `slot-unbootable=yes`: la strategia non può considerarlo un ripristino disponibile.
-- Lette le dimensioni di boot, vendor_boot, dtbo, vbmeta, super e userdata; lo script di cattura ora ripete anche queste query in modo riproducibile.
-- Il telefono resta in fastboot. Il supporto a `fastboot boot` e il gate di recovery esatto restano aperti; nessuna immagine è stata inviata.
+- Performed only the authorized reboot from Android to ABL fastboot; no Linux boot, slot change, or write.
+- `getvar all` confirms product/SKU, CSOT NT37701, unlocked bootloader, 8 GB RAM, 128 GB UFS, slot `_b`, and non-userspace fastboot.
+- Both slots have retry 6 and successful yes, but `_a` is also `slot-unbootable=yes`: the strategy cannot treat it as an available restore.
+- Read the sizes of boot, vendor_boot, dtbo, vbmeta, super, and userdata; the capture script now repeats these queries in a reproducible way.
+- The phone stays in fastboot. Support for `fastboot boot` and the exact-recovery gate stay open; no image was sent.
 
-## 2026-11-07 — Primo boot temporaneo: fallimento precoce
+## 2026-11-07 — First temporary boot: early failure
 
-- Autorizzato ed eseguito **una sola volta** `fastboot boot` con l'immagine CSOT; invio e comando ritornano OKAY.
-- Il Motorola si scollega e riappare come fastboot dopo circa 3 s; nessun gadget `1d6b:0104`, shell o log Linux. Slot, successful/unbootable flag e retry restano invariati.
-- Identificato e ignorato il Galaxy Tab S5e collegato allo stesso host: la sua rete USB non appartiene al Motorola; i comandi fastboot successivi sono vincolati al seriale del Motorola.
-- Riavviato il solo Motorola su LineageOS `_b`. `pstore` non è leggibile dall'utente ADB e `/proc/last_kmsg` non esiste; causa del fallimento non determinata.
-- Verificato che header v2, offset, pagina, DTB e cmdline corrispondono a pmaports. Scaricato il pacchetto Nura `linux-postmarketos-qcom-sc7280-7.2.9-r3` dal mirror ufficiale (SHA-256 `c504a4791b62faaab8ece3f62c5ab3eb8f84bba5a1cf950f338fa5f9b295f543`).
-- Il DTB CSOT Nura è identico byte per byte al nostro; il kernel differisce. Nura compila con LLVM/Clang thin-LTO/BTF, mentre la prima build usa GCC. Avviata una build LLVM separata per isolare questa differenza senza modificare DTS o bootloader.
+- Authorized and ran `fastboot boot` with the CSOT image **once**; the transfer and the command return OKAY.
+- The Motorola disconnects and reappears as fastboot after about 3 s; no `1d6b:0104` gadget, shell, or Linux log. Slot, successful/unbootable flags, and retries stay unchanged.
+- Identified and ignored the Galaxy Tab S5e connected to the same host: its USB network does not belong to the Motorola; later fastboot commands are bound to the Motorola serial.
+- Rebooted only the Motorola into LineageOS `_b`. `pstore` is not readable by the ADB user and `/proc/last_kmsg` does not exist; the cause of the failure was not determined.
+- Verified that header v2, offsets, page, DTB, and cmdline match pmaports. Downloaded the Nura package `linux-postmarketos-qcom-sc7280-7.2.9-r3` from the official mirror (SHA-256 `c504a4791b62faaab8ece3f62c5ab3eb8f84bba5a1cf950f338fa5f9b295f543`).
+- The Nura CSOT DTB is byte-identical to ours; the kernel differs. Nura builds with LLVM/Clang thin-LTO/BTF, while the first build uses GCC. Started a separate LLVM build to isolate this difference without changing the DTS or the bootloader.
 
-## 2026-11-07 — Controlli incrociati e backup verificato
+## 2026-11-07 — Cross-checks and verified backup
 
-- Build LLVM **riuscita** e verificata: thin-LTO/BTF, 631 voci moduli e DTB corretti. Anche la sua boot image ritorna in fastboot dopo circa 3 s.
-- Anche il kernel binario Nura 7.2.9-r3 con la nostra initramfs fallisce nello stesso modo: toolchain e singola build locali non sono la causa dimostrata.
-- La `boot.img` ufficiale LineageOS 23.2 del 2026-10-09, verificata con SHA-256, si avvia correttamente tramite `fastboot boot`: il meccanismo è supportato, mentre tutte le immagini mainline header v2 falliscono.
-- Entrati nella recovery LineageOS esistente e ottenuto ADB root dopo conferma esplicita sul dispositivo.
-- Eseguito backup read-only di boot, vendor_boot, dtbo e vbmeta di entrambi gli slot. Tutte le otto immagini hanno dimensione attesa e SHA-256 identico tra copia host e seconda lettura sul telefono.
-- Preparato il runbook per un test persistente della sola `boot_b` con rollback dal backup reale. Nessun flash è stato eseguito; il telefono resta in recovery.
+- LLVM build **succeeded** and was verified: thin-LTO/BTF, 631 module entries, and correct DTBs. Its boot image also returns to fastboot after about 3 s.
+- The Nura 7.2.9-r3 binary kernel with our initramfs fails the same way: the toolchain and a single local build are not the demonstrated cause.
+- The official LineageOS 23.2 `boot.img` from 2026-10-09, verified with SHA-256, boots correctly through `fastboot boot`: the mechanism is supported, while every mainline header-v2 image fails.
+- Entered the existing LineageOS recovery and obtained ADB root after explicit confirmation on the device.
+- Performed a read-only backup of boot, vendor_boot, dtbo, and vbmeta of both slots. All eight images have the expected size and a SHA-256 that matches between the host copy and a second read on the phone.
+- Prepared the runbook for a persistent test of `boot_b` alone, with rollback from the real backup. No flash was performed; the phone stays in recovery.
 
-## 2026-11-07 — Alpha 0 raggiunta
+## 2026-11-07 — Alpha 0 reached
 
-- Il flash della sola boot_b LLVM fallisce; rollback dalla copia originale riuscito e boot LineageOS `_b` completato.
-- Riprodotto il DTBO vuoto da 24 MiB richiesto da pmaports: boot_b LLVM + dtbo_b vuoto **avvia finalmente mainline**.
-- Shell reale: `Linux dubai-rescue 7.2.9-dubai+ aarch64`, modello `Motorola Edge 30 (CSOT)`, USB NCM/ACM attivo e SSH su chiave pubblica.
-- Tutte le LUN UFS `sda`–`sdf` verificate read-only; nessun mount Android o uso di userdata.
-- Corretto `/lib/modules` → `/usr/lib/modules`; caricati pannello NT37701, SPI GENI e Goodix Berlin. DRM card0/renderD128, framebuffer 1080×2400 e touch Goodix rilevati.
-- Integrati i firmware linux-firmware Adreno SQE/GMU/zap, con hash registrati. Un rebind DRM manuale ha causato warning/oops ed EBUSY GMU: metodo scartato, sarà testato solo un boot pulito.
-- Preparata una variante NBD: qemu-nbd in snapshot sul PC e client nella initramfs per avviare Arch senza scrivere userdata. Rebuild rootfs LLVM avviato per coerenza dei moduli.
-- Rootfs LLVM completato e smoke test passato; manifest registra il tarball moduli SHA-256 `9d49893488989f1d2ac781ae1ea3346700c1d64267daf42b215ad186ee961150`.
-- Copia raw NBD provisioned con firstboot e chiave pubblica, ownership root e `e2fsck` pulito. Server qemu-nbd snapshot attivo; boot Arch in attesa di accesso fastboot tramite tasti.
-- Primo flash NBD eseguito: mainline e USB NCM/ACM attivi, ma il primo tentativo NBD precede la configurazione dell'indirizzo host e lascia `/dev/nbd0` a capacità zero. Un mount manuale successivo legge correttamente ext4 e trova `/sbin/init`; `switch_root` via SSH è rifiutato perché deve essere PID 1.
-- `reboot -f` dalla initramfs BusyBox porta ABL in fastboot e consuma i retry dello slot; `set_active b` è stato necessario per riavviare `_b`. Non usare quel reboot per i prossimi test.
-- Alpine 3.24.2 marca root bloccato (`root:*`), quindi dropbear rifiuta anche la chiave nella nuova initramfs. Corretto il builder per lasciare root senza password nella sola initramfs, mantenendo dropbear `-s -g` e quindi SSH a sole chiavi.
-- Nuova boot image NBD costruita e verificata: 90 secondi di retry, controllo capacità NBD e server qemu-nbd `--persistent`. Il flash della revisione corretta richiede un nuovo accesso fisico a fastboot; Arch/systemd non sono ancora stati avviati.
+- Flashing LLVM boot_b alone fails; rollback from the original copy succeeded and the LineageOS `_b` boot completed.
+- Reproduced the empty 24 MiB DTBO required by pmaports: LLVM boot_b plus an empty dtbo_b **finally boots mainline**.
+- Real shell: `Linux dubai-rescue 7.2.9-dubai+ aarch64`, model `Motorola Edge 30 (CSOT)`, USB NCM/ACM active, and SSH on a public key.
+- Every UFS LUN `sda`–`sdf` verified read-only; no Android mount and no use of userdata.
+- Fixed `/lib/modules` → `/usr/lib/modules`; loaded the NT37701 panel, GENI SPI, and Goodix Berlin. DRM card0/renderD128, a 1080×2400 framebuffer, and Goodix touch were detected.
+- Integrated the linux-firmware Adreno SQE/GMU/zap firmware, with hashes recorded. A manual DRM rebind caused warnings/oops and GMU EBUSY: that method was discarded and only a clean boot will be tested.
+- Prepared an NBD variant: qemu-nbd in snapshot mode on the PC and a client in the initramfs, to boot Arch without writing userdata. An LLVM rootfs rebuild was started so the modules match.
+- LLVM rootfs completed and the smoke test passed; the manifest records the module tarball SHA-256 `9d49893488989f1d2ac781ae1ea3346700c1d64267daf42b215ad186ee961150`.
+- NBD raw copy provisioned with firstboot and the public key, root ownership, and a clean `e2fsck`. qemu-nbd snapshot server active; Arch boot waiting for fastboot access through the keys.
+- First NBD flash performed: mainline and USB NCM/ACM active, but the first NBD attempt happens before the host address is configured and leaves `/dev/nbd0` at zero capacity. A later manual mount correctly reads ext4 and finds `/sbin/init`; `switch_root` over SSH is rejected because it must be PID 1.
+- `reboot -f` from the BusyBox initramfs puts ABL into fastboot and consumes the slot retries; `set_active b` was required to boot `_b` again. Do not use that reboot for the next tests.
+- Alpine 3.24.2 marks root locked (`root:*`), so Dropbear also rejects the key in the new initramfs. Fixed the builder so root has no password in the initramfs only, keeping Dropbear `-s -g` and therefore key-only SSH.
+- New NBD boot image built and verified: 90 seconds of retry, an NBD capacity check, and a qemu-nbd `--persistent` server. Flashing the corrected revision requires new physical access to fastboot; Arch/systemd have not been started yet.
 
-## 2026-11-07 — Arch NBD e shell Omarchy avviati
+## 2026-11-07 — Arch NBD and the Omarchy shell started
 
-- `switch_root` riuscito: `systemd` è PID 1, `/` è ext4 rw su `/dev/nbd0`, firstboot crea l'utente e SDDM avvia la sessione. SSH utente funziona dopo aver eliminato il vecchio dropbear e aggiunto la regola UFW su `usb0`.
-- Il dropbear della initramfs sopravvive a `switch_root`, perde le chiavi con il vecchio root e occupa la porta 22. Il builder ora lo termina insieme alla console ACM prima di `switch_root`; il guard UFS resta attivo.
-- UFW fallisce per quattro opzioni netfilter assenti. Abilitati `xt_limit`, `xt_LOG`, `xt_hl` e `ip6t_rt` come moduli; kernel LLVM ricompilato con successo e 636 voci moduli verificate.
-- Orologio iniziale errato (26 ottobre) corretto; `pacman-key --populate` completato. La chiave pubblica locale dubai è stata aggiunta e firmata localmente come azione del proprietario; `pacman -Q` e `pacman -Dk` passano, 972 pacchetti, nessuna verifica di firma disabilitata.
-- Il blob zap qcm6490 generico provoca errori Freedreno `ENXIO`. Il blob dubai-specifico fissato da pmaports, verificato e mantenuto privato, consente l'avvio di Hyprland e Quickshell.
-- EGL riporta Freedreno Adreno e OpenGL ES 3.2; DRM offre 1080×2400 a 48/60/90/120/144 Hz. Hyprland riconosce Goodix; `evtest` conferma coordinate, rilascio e multitouch, con riaccensione DPMS tramite tocco.
-- È in corso il rebuild rootfs con i moduli aggiornati; firstboot completo e boot senza interventi manuali restano da validare.
+- `switch_root` succeeded: `systemd` is PID 1, `/` is ext4 rw on `/dev/nbd0`, firstboot creates the user, and SDDM starts the session. User SSH works after the old Dropbear was removed and the UFW rule on `usb0` was added.
+- The initramfs Dropbear survives `switch_root`, loses its keys with the old root, and occupies port 22. The builder now stops it, together with the ACM console, before `switch_root`; the UFS guard stays active.
+- UFW fails because four netfilter options are missing. Enabled `xt_limit`, `xt_LOG`, `xt_hl`, and `ip6t_rt` as modules; the LLVM kernel was rebuilt successfully and 636 module entries were verified.
+- The initial clock was wrong (26 October) and was corrected; `pacman-key --populate` completed. The local dubai public key was added and signed locally as an owner action; `pacman -Q` and `pacman -Dk` pass, 972 packages, no signature check disabled.
+- The generic qcm6490 zap blob causes Freedreno `ENXIO` errors. The dubai-specific blob pinned by pmaports, verified and kept private, allows Hyprland and Quickshell to start.
+- EGL reports Freedreno Adreno and OpenGL ES 3.2; DRM offers 1080×2400 at 48/60/90/120/144 Hz. Hyprland recognizes Goodix; `evtest` confirms coordinates, release, and multitouch, with DPMS wake on touch.
+- The rootfs rebuild with the updated modules is in progress; a complete firstboot and a boot without manual intervention remain to be validated.

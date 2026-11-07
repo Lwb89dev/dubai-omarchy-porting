@@ -1,32 +1,32 @@
 <!-- SPDX-License-Identifier: MIT -->
-# Roadmap eseguibile
+# Executable roadmap
 
-| Milestone | Deliverable e gate | Stato al 2026-11-06 |
+| Milestone | Deliverable and gate | State on 2026-11-06 |
 |---|---|---|
-| M0 Audit | Fonti fissate, dipendenze e boot/storage documentati | Completato offline; nessun device test |
-| M1 Matrice hardware | Stato driver/DT separato da rilevamento e test | Matrice sorgenti; hardware non verificato |
-| M2 Kernel | Kernel 7.2.9-sc7280, config, moduli, due DTB, SHA-256 e log | **Completato offline**; dtbs_check pass, non avviato |
-| M3 Initramfs | RAM-only, guard read-only, NCM/ACM, Dropbear, log | **Build e QEMU pass**, riproducibile; Alpha 0 richiede boot autorizzato |
-| M4 Arch rootfs | Builder ALARM/QEMU, pacchetti binari, kernel/modules | Preparazione; nessun `userdata` |
-| M5 Display/GPU/touch | 60 Hz KMS stabile, Freedreno, libinput | Solo evidenza nei sorgenti |
-| M6 Connettività | ath11k/WCN6750, BlueZ, ruoli USB | Firmware e test da fare |
-| M7 Audio | QDSP6, UCM dubai, PipeWire, test sicuri a basso volume | Packaging UCM e servizi da fare |
-| M8 Power | Batteria/charging, runtime PM, s2idle e resume progressivi | Non testato; suspend non predefinito |
-| M9 Modem | remoteproc/QRTR/QMI, dati, SMS, chiamate, IMS separati | Nessuno stack Pixel; servizi Qualcomm da pacchettizzare |
-| M10 Omarchy | Device package e shell reale, portrait/landscape, prestazioni 6 GiB | Dopo M5/M6 |
-| M11 Secondario | Sensori, haptics, fingerprint, GNSS, camere, NFC | Non blocca la prima release |
+| M0 Audit | Sources pinned, dependencies and boot/storage documented | Completed offline; no device test |
+| M1 Hardware matrix | Driver/DT state separated from detection and tests | Source matrix; hardware not verified |
+| M2 Kernel | Kernel 7.2.9-sc7280, config, modules, two DTBs, SHA-256, and log | **Completed offline**; dtbs_check pass, not booted |
+| M3 Initramfs | RAM-only, read-only guard, NCM/ACM, Dropbear, logs | **Build and QEMU pass**, reproducible; Alpha 0 requires an authorized boot |
+| M4 Arch rootfs | ALARM/QEMU builder, binary packages, kernel/modules | Preparation; no `userdata` |
+| M5 Display/GPU/touch | Stable 60 Hz KMS, Freedreno, libinput | Source evidence only |
+| M6 Connectivity | ath11k/WCN6750, BlueZ, USB roles | Firmware and tests still to do |
+| M7 Audio | QDSP6, dubai UCM, PipeWire, safe low-volume tests | UCM packaging and services still to do |
+| M8 Power | Battery/charging, runtime PM, progressive s2idle and resume | Not tested; suspend is not the default |
+| M9 Modem | remoteproc/QRTR/QMI, data, SMS, calls, IMS kept separate | No Pixel stack; Qualcomm services still to package |
+| M10 Omarchy | Device package and the real shell, portrait/landscape, 6 GiB performance | After M5/M6 |
+| M11 Secondary | Sensors, haptics, fingerprint, GNSS, cameras, NFC | Does not block the first release |
 
-## Traguardi di release
+## Release milestones
 
-- **Alpha 0:** primo kernel e initramfs realmente avviati, log e recovery verificati. Non raggiunto.
-- **Alpha 1:** Arch/systemd/pacman, storage e rete/SSH sul dispositivo. Non raggiunto.
-- **Alpha 2:** Hyprland accelerato, touch, Wi-Fi, audio, batteria e shell Omarchy. Non raggiunto.
-- **Beta:** power/charging affidabili, modem dati, stabilità e update; telefonia valutata separatamente. Non raggiunto.
+- **Alpha 0:** first kernel and initramfs actually booted, logs and recovery verified. Not reached.
+- **Alpha 1:** Arch/systemd/pacman, storage, and network/SSH on the device. Not reached.
+- **Alpha 2:** accelerated Hyprland, touch, Wi-Fi, audio, battery, and the Omarchy shell. Not reached.
+- **Beta:** reliable power/charging, modem data, stability, and updates; telephony evaluated separately. Not reached.
 
-## Prossime azioni in ordine
+## Next actions, in order
 
-1. Identità e pannello del telefono con acquisizione read-only.
-2. Completare build kernel/initramfs e validazione statica.
-3. Richiedere approvazione per un solo boot temporaneo se tutti i gate passano.
-4. Solo dopo i log: correggere un sottosistema alla volta e preparare Arch rootfs coerente con lo stesso kernel.
-5. Integrare Freedreno e Omarchy senza importare policy Pixel.
+1. Phone identity and panel, with a read-only capture.
+2. Finish the kernel/initramfs build and static validation.
+3. Request approval for a single temporary boot if every gate passes.
+4. Only after the logs: fix one subsystem at a time and prepare an Arch rootfs that matches the same kernel.
+5. Integrate Freedreno and Omarchy without importing Pixel policy.

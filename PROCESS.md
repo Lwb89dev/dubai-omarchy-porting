@@ -1,48 +1,48 @@
 <!-- SPDX-License-Identifier: MIT -->
-# Stato tecnico del porting
+# Technical state of the port
 
-Aggiornato: 2026-11-07.
+Updated: 2026-11-07.
 
-## Stato attuale
+## Current state
 
-- **Fase:** M0/M1 documentati; M2/M3 completati; **M4 raggiunto** con Arch/systemd/SSH/pacman su NBD; grafica accelerata, Hyprland e touch M5 verificati nella snapshot. Boot pulito e firstboot completo restano da verificare.
-- **Commit del porting:** branch `main` pubblicato su `https://github.com/Lwb89dev/dubai-omarchy-porting`; la revisione locale si legge con `git rev-parse HEAD`.
+- **Phase:** M0/M1 documented; M2/M3 complete; **M4 reached** with Arch/systemd/SSH/pacman over NBD; accelerated graphics, Hyprland, and touch for M5 verified in the snapshot. A clean boot and a complete firstboot remain to be verified.
+- **Port commit:** branch `main` published at `https://github.com/Lwb89dev/dubai-omarchy-porting`; read the local revision with `git rev-parse HEAD`.
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
 - **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`.
-- **Arch Linux ARM:** rootfs `2026.11.07` con moduli LLVM; SHA-256 e smoke test passati.
-- **Configurazioni:** fragment GCC e LLVM separati sopra pmaports 7.2.9-r3; nessuna patch ai sorgenti kernel.
+- **Arch Linux ARM:** rootfs `2026.11.07` with LLVM modules; SHA-256 and smoke test passed.
+- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3; no patches to the kernel sources.
 
-## Build e test
+## Builds and tests
 
-| Attività | Esito | Evidenza |
+| Activity | Result | Evidence |
 |---|---|---|
-| Recupero sorgenti | Pass | Checkout e archivi in `sources.lock` |
-| ShellCheck/sintassi | Pass | `tests/static.sh` |
-| Build kernel GCC e LLVM | **Pass offline** | Image/Image.gz, entrambi i DTB, 636 voci moduli LLVM e SHA-256 |
-| Build initramfs | **Pass** | RAM-only, riproducibile; varianti con moduli, SSH, firmware dubai e NBD |
-| Rootfs Arch/Omarchy GCC | **Pass offline** | Checksum e smoke test passati |
-| Rootfs Arch/Omarchy LLVM | **Pass offline** | Checksum, smoke test ed e2fsck della copia NBD passati |
-| Backup boot chain | **Pass** | Otto immagini originali, due letture SHA-256 coincidenti |
-| Boot mainline senza DTBO vuoto | **Fail** | GCC/LLVM/Nura ritornano in fastboot; nessuna shell |
-| Boot mainline con DTBO vuoto | **Pass M3** | Kernel 7.2.9-dubai+, modello CSOT, ACM/NCM/SSH attivi |
-| Arch NBD | **Pass M4** | systemd PID 1, ext4 su NBD, SSH e pacman funzionanti |
-| Display/touch | **Pass nella snapshot** | Hyprland 1080×2400@144, DPMS wake e multitouch Goodix verificati |
-| Storage guard | **Pass** | Tutte le LUN `sda`–`sdf` read-only; nessun mount Android |
-| GPU accelerata | **Pass nella snapshot** | EGL Freedreno Adreno, OpenGL ES 3.2; richiesto zap dubai-specifico |
-| Rollback LineageOS | **Pass** | boot_b originale ripristinata e boot completato prima del test DTBO |
+| Source fetch | Pass | Checkouts and archives in `sources.lock` |
+| ShellCheck/syntax | Pass | `tests/static.sh` |
+| GCC and LLVM kernel builds | **Pass offline** | Image/Image.gz, both DTBs, 636 LLVM module entries, and SHA-256 |
+| Initramfs build | **Pass** | RAM-only, reproducible; variants with modules, SSH, dubai firmware, and NBD |
+| Arch/Omarchy GCC rootfs | **Pass offline** | Checksums and smoke test passed |
+| Arch/Omarchy LLVM rootfs | **Pass offline** | Checksum, smoke test, and e2fsck of the NBD copy passed |
+| Boot-chain backup | **Pass** | Eight original images, two matching SHA-256 reads |
+| Mainline boot without an empty DTBO | **Fail** | GCC/LLVM/Nura return to fastboot; no shell |
+| Mainline boot with an empty DTBO | **Pass M3** | Kernel 7.2.9-dubai+, CSOT model, ACM/NCM/SSH active |
+| Arch NBD | **Pass M4** | systemd PID 1, ext4 on NBD, SSH and pacman working |
+| Display/touch | **Pass in the snapshot** | Hyprland 1080×2400@144, DPMS wake, and Goodix multitouch verified |
+| Storage guard | **Pass** | Every `sda`–`sdf` LUN read-only; no Android mount |
+| Accelerated GPU | **Pass in the snapshot** | EGL Freedreno Adreno, OpenGL ES 3.2; a dubai-specific zap is required |
+| LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
 
-## Hardware e blocchi
+## Hardware and blockers
 
-- Il DTBO Android deve essere sostituito dal DTBO vuoto pmaports per avviare mainline; vbmeta non è stata modificata.
-- Slot `_a` è marcato unbootable; `_b` contiene attualmente la initramfs di test e il backup è verificato.
-- Il boot pulito deve ancora verificare cleanup dropbear/ACM, moduli UFW e firstboot senza interventi manuali.
-- Wi-Fi, audio, modem, batteria/charging, suspend e sensori non qualificati.
-- Firmware proprietario non pubblicato; gli artefatti NBD sono solo locali.
+- The Android DTBO must be replaced by the empty pmaports DTBO to boot mainline; vbmeta was not modified.
+- Slot `_a` is marked unbootable; `_b` currently holds the test initramfs and the backup is verified.
+- A clean boot must still verify dropbear/ACM cleanup, UFW modules, and firstboot without manual intervention.
+- Wi-Fi, audio, modem, battery/charging, suspend, and sensors are not qualified.
+- Proprietary firmware is not published; the NBD artifacts are local only.
 
-## Rischi
+## Risks
 
-`userdata` condivisa, AVB, slot A non avviabile e molti driver non ancora testati. La strategia NBD evita qualunque scrittura allo storage interno oltre boot_b/dtbo_b già coperte da backup.
+Shared `userdata`, AVB, an unbootable slot A, and many drivers not yet tested. The NBD strategy avoids any write to internal storage beyond boot_b/dtbo_b, which are already covered by backups.
 
-## Prossimo passo
+## Next step
 
-Completare il rootfs con i nuovi moduli, provisionare il solo zap dubai privato e ripetere un boot NBD pulito. Verificare firstboot, UFW, SSH, Hyprland, GPU e touch senza interventi manuali e senza usare `userdata`.
+Finish the rootfs with the new modules, provision only the private dubai zap, and repeat a clean NBD boot. Verify firstboot, UFW, SSH, Hyprland, GPU, and touch without manual intervention and without using `userdata`.

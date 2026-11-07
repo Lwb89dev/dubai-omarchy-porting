@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
-# Build riproducibili
+# Reproducible builds
 
-## Prerequisiti host
+## Host prerequisites
 
-Pop!_OS/Ubuntu 24.04: Docker funzionante, QEMU AArch64 binfmt con flag `F`, Git, Python 3, ShellCheck, curl, cpio, gzip, zstd e GnuPG. Il kernel viene compilato nel container `docker/Dockerfile.kernel`, basato sul digest Ubuntu 24.04 fissato da Omarchy Mobile e dotato di GCC AArch64 e LLVM/Clang.
+Pop!_OS/Ubuntu 24.04: working Docker, QEMU AArch64 binfmt with the `F` flag, Git, Python 3, ShellCheck, curl, cpio, gzip, zstd, and GnuPG. The kernel is built in the `docker/Dockerfile.kernel` container, based on the Ubuntu 24.04 digest pinned by Omarchy Mobile and equipped with AArch64 GCC and LLVM/Clang.
 
-Build GCC predefinita:
+Default GCC build:
 
 ```sh
 scripts/fetch-sources.sh
@@ -17,7 +17,7 @@ scripts/verify-images.sh
 tests/static.sh
 ```
 
-Build LLVM di confronto, allineata alla toolchain pmaports/Nura e con output separato:
+Comparison LLVM build, aligned with the pmaports/Nura toolchain and with separate output:
 
 ```sh
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e JOBS=16 -e LLVM=1 \
@@ -28,46 +28,46 @@ KERNEL_OUT="$PWD/out/kernel-llvm" IMAGE_OUT="$PWD/out/images-llvm" \
   PANEL=csot scripts/build-images.sh
 ```
 
-Per abilitare SSH nella diagnostica, passare esplicitamente **solo una chiave pubblica**:
+To enable SSH in the diagnostic image, pass **only a public key**, explicitly:
 
 ```sh
 SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" scripts/build-initramfs.sh
 ```
 
-Senza chiave sono disponibili solo console locale/seriale; non vengono raccolte automaticamente tutte le chiavi dell'host.
+Without a key, only the local/serial console is available; the host's keys are not collected automatically.
 
-## Artefatti
+## Artifacts
 
-- `out/kernel/arch/arm64/boot/Image` e `Image.gz`; analoghi sotto `out/kernel-llvm`
+- `out/kernel/arch/arm64/boot/Image` and `Image.gz`; the equivalents under `out/kernel-llvm`
 - `out/kernel*/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-{csot,tianma}.dtb`
 - `out/kernel*/config.final`, `modules-7.2.9-dubai+.tar.zst`, `SHA256SUMS`
-- `out/initramfs/initramfs-dubai.cpio.gz`, log e checksum
-- log di build in `out/*/logs/`
+- `out/initramfs/initramfs-dubai.cpio.gz`, logs, and checksums
+- build logs in `out/*/logs/`
 
-Il fragment GCC disabilita Clang LTO/BTF; quello LLVM conserva thin-LTO/BTF di pmaports. Entrambi rendono built-in il gadget NCM/ACM e abilitano ramoops. Il tree SC7280 compila NT37701 come modulo tramite `obj-m`. Non cambia DTS o driver. `scripts/validate-dtbs.sh` esegue `dtbs_check` con dtschema 2026.9.
+The GCC fragment disables Clang LTO/BTF; the LLVM fragment keeps the pmaports thin-LTO/BTF. Both build the NCM/ACM gadget in and enable ramoops. The SC7280 tree builds NT37701 as a module through `obj-m`. It does not change the DTS or drivers. `scripts/validate-dtbs.sh` runs `dtbs_check` with dtschema 2026.9.
 
 ## Boot image
 
-`scripts/fetch-boot-tools.sh` recupera il `mkbootimg.py` AOSP fissato e ne verifica gli SHA-256:
+`scripts/fetch-boot-tools.sh` fetches the pinned AOSP `mkbootimg.py` and checks its SHA-256:
 
 ```sh
 scripts/fetch-boot-tools.sh
 PANEL=csot scripts/build-images.sh
 ```
 
-L'output contiene `UNTESTED` e un marker `NOT-FOR-FLASH`. Compilare non valida il boot né autorizza il flash. Per questo esemplare sono state generate anche varianti sotto `out/images-llvm` e `out/images-nura`; i risultati hardware sono registrati in `PROCESS.md` e `docs/RECOVERY-RUNBOOK.md`.
+The output contains `UNTESTED` and a `NOT-FOR-FLASH` marker. Compiling does not validate the boot and does not authorize a flash. For this unit, variants were also generated under `out/images-llvm` and `out/images-nura`; the hardware results are recorded in `PROCESS.md` and `docs/RECOVERY-RUNBOOK.md`.
 
-## Rootfs Arch/Omarchy
+## Arch/Omarchy rootfs
 
-`scripts/build-rootfs.sh --prepare-only` crea `work/omarchy-dubai` alla revisione upstream fissata e applica solo descriptor, device package e package list di questo port. I sorgenti upstream restano invariati.
+`scripts/build-rootfs.sh --prepare-only` creates `work/omarchy-dubai` at the pinned upstream revision and applies only this port's descriptors, device package, and package list. The upstream sources stay unchanged.
 
-`scripts/build-rootfs.sh --build` usa gli script upstream: crea una chiave locale non pubblicata, scarica in parallelo solo i pacchetti dubai con indice/firme/SHA-256 verificati, compila solo `omamobile-device-dubai`, usa Mesa ALARM con Freedreno e invoca `tools/build-rootfs`. Per la coerenza delle librerie, Hyprland 0.57.1-2 e aquamarine 0.16.0-1.1 provengono dai binari firmati Omarchy edge fissati in `sources.lock`; Omarchy resta al pin 4.0.6. Richiede il tarball dei moduli dello stesso kernel. Log in `out/rootfs/logs/build.log`. Non scrive sul telefono.
+`scripts/build-rootfs.sh --build` uses the upstream scripts: it creates an unpublished local key, downloads in parallel only the dubai packages with index/signatures/SHA-256 verified, builds only `omamobile-device-dubai`, uses ALARM Mesa with Freedreno, and invokes `tools/build-rootfs`. For library consistency, Hyprland 0.57.1-2 and aquamarine 0.16.0-1.1 come from the signed Omarchy edge binaries pinned in `sources.lock`; Omarchy stays at pin 4.0.6. It requires the module tarball of the same kernel. Log in `out/rootfs/logs/build.log`. It does not write to the phone.
 
-L'immagine, il checksum e il manifest vengono pubblicati in `work/omarchy-dubai/out/dubai/` come `omamobile-rootfs-dubai-<data>-aarch64.img.zst`, `.img.zst.sha256` e `.MANIFEST`. Il builder esegue automaticamente `tests/rootfs-smoke` prima della pubblicazione; una build rootfs riuscita non equivale a un boot verificato sul dispositivo.
+The image, checksum, and manifest are published in `work/omarchy-dubai/out/dubai/` as `omamobile-rootfs-dubai-<date>-aarch64.img.zst`, `.img.zst.sha256`, and `.MANIFEST`. The builder automatically runs `tests/rootfs-smoke` before publication; a successful rootfs build is not the same as a verified boot on the device.
 
-## Initramfs hardware e rootfs NBD
+## Hardware initramfs and NBD rootfs
 
-La build initramfs accetta `KERNEL_OUT` per includere i moduli, `FIRMWARE_DIR` per SQE/GMU da linux-firmware, `DUBAI_ZAP_FIRMWARE` per lo zap specifico del proprietario e `NBD_SERVER` per il rootfs remoto opzionale. Il blob zap `qcm6490` generico non è compatibile come sostituto. La variante usata per dubai è:
+The initramfs build accepts `KERNEL_OUT` to include the modules, `FIRMWARE_DIR` for SQE/GMU from linux-firmware, `DUBAI_ZAP_FIRMWARE` for the owner's specific zap, and `NBD_SERVER` for the optional remote rootfs. The generic `qcm6490` zap blob is not a compatible substitute. The variant used for dubai is:
 
 ```sh
 INITRAMFS_OUT="$PWD/out/initramfs-nbd" KERNEL_OUT="$PWD/out/kernel-llvm" \
@@ -79,7 +79,7 @@ KERNEL_OUT="$PWD/out/kernel-llvm" \
   IMAGE_OUT="$PWD/out/images-nbd" PANEL=csot scripts/build-images.sh
 ```
 
-`KERNEL_OUT` è accettato anche da `scripts/build-rootfs.sh --build` per mantenere kernel e moduli coerenti. Il server usa una copia raw e snapshot temporanei:
+`KERNEL_OUT` is also accepted by `scripts/build-rootfs.sh --build` so the kernel and modules stay consistent. The server uses a raw copy and temporary snapshots:
 
 ```sh
 zstd -q -d --sparse -f \
@@ -91,12 +91,12 @@ qemu-nbd --format=raw --snapshot --persistent --bind=172.16.42.2 --port=10809 \
   --export-name=omamobile work/rootfs-dubai-2026.11.07.img
 ```
 
-Il provisioning modifica soltanto la copia raw e verifica contenuto ed ext4. La chiave pubblica del repository locale va aggiunta e firmata localmente sul telefono come azione del proprietario (`pacman-key --add`, poi `pacman-key --lsign-key` con il fingerprint della build); non viene inserita nel keyring upstream.
+Provisioning changes only the raw copy and checks the content and ext4. The local repository public key must be added and signed locally on the phone as an owner action (`pacman-key --add`, then `pacman-key --lsign-key` with the build fingerprint); it is not inserted into the upstream keyring.
 
-`--persistent` impedisce al server di terminare quando il client si disconnette. La initramfs attende fino a 90 secondi che l'host abbia configurato `172.16.42.2/24` e verifica che `/dev/nbd0` abbia una capacità non nulla prima del mount. Root nella initramfs ha la password vuota perché Alpine 3.24 lo marca bloccato e dropbear ne rifiuterebbe anche la chiave; dropbear resta avviato con `-s -g`, quindi il login SSH resta esclusivamente su chiave pubblica.
+`--persistent` stops the server from exiting when the client disconnects. The initramfs waits up to 90 seconds for the host to configure `172.16.42.2/24` and checks that `/dev/nbd0` has non-zero capacity before the mount. Root in the initramfs has an empty password because Alpine 3.24 marks it locked and Dropbear would then reject the key as well; Dropbear is still started with `-s -g`, so SSH login stays public-key only.
 
-NBD non è il default: senza `/etc/omamobile-nbd-server` resta attiva la shell diagnostica. L'immagine NBD non scrive su `userdata` e non pubblica firmware o credenziali.
+NBD is not the default: without `/etc/omamobile-nbd-server` the diagnostic shell stays active. The NBD image does not write to `userdata` and does not publish firmware or credentials.
 
 ## CI
 
-`.github/workflows/offline-build.yml` esegue lint, preparazione rootfs, kernel, DTB, initramfs e verifica checksum. Non contiene comandi ADB/fastboot e non pubblica firmware.
+`.github/workflows/offline-build.yml` runs lint, rootfs preparation, kernel, DTB, initramfs, and checksum verification. It contains no ADB/fastboot commands and does not publish firmware.

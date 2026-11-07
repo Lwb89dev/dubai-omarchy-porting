@@ -1,29 +1,29 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Recovery runbook — Motorola dubai
 
-Questo documento registra operazioni già eseguite con autorizzazione e il rollback associato. L'installazione Arch su `userdata` resta fuori scope; la strategia corrente usa NBD senza scrivere lo storage interno.
+This document records operations already performed with authorization and the associated rollback. Installing Arch on `userdata` stays out of scope; the current strategy uses NBD without writing internal storage.
 
-## Stato e backup
+## State and backup
 
-- XT2203-1/dubai, 8 GB RAM, UFS 128 GB, CSOT NT37701, LineageOS 23.2 del 2026-05-29, slot `_b`.
-- Slot `_a` marcato unbootable; non usarlo come fallback.
-- Backup privato verificato con due letture SHA-256: boot, vendor_boot, dtbo e vbmeta di entrambi gli slot.
-- Dimensioni: boot/vendor_boot 96 MiB, dtbo 24 MiB, vbmeta 64 KiB.
+- XT2203-1/dubai, 8 GB RAM, 128 GB UFS, CSOT NT37701, LineageOS 23.2 from 2026-05-29, slot `_b`.
+- Slot `_a` is marked unbootable; do not use it as a fallback.
+- Private backup verified with two SHA-256 reads: boot, vendor_boot, dtbo, and vbmeta of both slots.
+- Sizes: boot/vendor_boot 96 MiB, dtbo 24 MiB, vbmeta 64 KiB.
 
-## Risultati dei test
+## Test results
 
-| Test | Esito |
+| Test | Result |
 |---|---|
-| `fastboot boot` GCC/LLVM/Nura, header v2 | Ritorno in fastboot dopo circa 3 s |
-| `fastboot boot` immagine ufficiale LineageOS | Android avviato; comando validato |
-| Flash sola boot_b mainline | Boot failed; rollback boot_b riuscito e LineageOS avviato |
-| Flash boot_b LLVM + dtbo_b vuoto | **Mainline avviato**, shell ACM/NCM/SSH, UFS read-only |
+| `fastboot boot` GCC/LLVM/Nura, header v2 | Return to fastboot after about 3 s |
+| `fastboot boot` of the official LineageOS image | Android booted; command validated |
+| Flash of mainline boot_b only | Boot failed; boot_b rollback succeeded and LineageOS booted |
+| Flash of LLVM boot_b plus an empty dtbo_b | **Mainline booted**, ACM/NCM/SSH shell, UFS read-only |
 
-Il DTBO vuoto pmaports è quindi necessario. Non modificare vbmeta: non è servito nei test riusciti.
+The empty pmaports DTBO is therefore required. Do not modify vbmeta: it was not needed in the successful tests.
 
-## Rollback completo alle immagini originali
+## Full rollback to the original images
 
-Assegnare localmente il seriale senza pubblicarlo e verificare i checksum prima del ripristino:
+Assign the serial locally without publishing it, and verify the checksums before restoring:
 
 ```sh
 export FASTBOOT_SERIAL=<motorola-serial>
@@ -34,31 +34,31 @@ fastboot -s "$FASTBOOT_SERIAL" flash dtbo_b "$PRIVATE_BACKUP/dtbo_b.img"
 fastboot -s "$FASTBOOT_SERIAL" reboot
 ```
 
-Atteso: LineageOS `_b` completamente avviato. Questo rollback è già stato verificato per boot_b dopo il primo flash. Non cambiare slot, non scrivere vendor_boot/vbmeta e non usare immagini di una nightly differente.
+Expected: LineageOS `_b` fully booted. This rollback was already verified for boot_b after the first flash. Do not change the slot, do not write vendor_boot/vbmeta, and do not use images from a different nightly.
 
-## Accesso fastboot
+## Fastboot access
 
-Da Android: `adb -s "$FASTBOOT_SERIAL" reboot bootloader`. Dalla initramfs le ragioni `bootloader` e `fastboot` sono state ignorate; usare Power+Volume Giù fino a fastboot. Verificare sempre `product=dubai` e il seriale prima di qualunque scrittura.
+From Android: `adb -s "$FASTBOOT_SERIAL" reboot bootloader`. From the initramfs the `bootloader` and `fastboot` reasons were ignored; use Power+Volume Down until fastboot. Always verify `product=dubai` and the serial before any write.
 
-## Rootfs senza installazione interna
+## Rootfs without an internal installation
 
-Il rootfs Arch/Omarchy viene decompresso sul PC e servito con qemu-nbd in modalità snapshot. Le scritture restano in overlay temporanei sul PC; il Motorola non monta `userdata`, `super` o altre partizioni Android.
+The Arch/Omarchy rootfs is decompressed on the PC and served with qemu-nbd in snapshot mode. Writes stay in temporary overlays on the PC; the Motorola does not mount `userdata`, `super`, or other Android partitions.
 
 ```sh
 qemu-nbd --format=raw --snapshot --persistent --bind=172.16.42.2 --port=10809 \
   --export-name=omamobile work/rootfs-dubai-2026.11.07.img
 ```
 
-La initramfs NBD carica il client solo se `/etc/omamobile-nbd-server` è presente. Attende fino a 90 secondi la rete host, rifiuta un device NBD con capacità zero e in caso di errore resta nella shell diagnostica senza tentare mount alternativi. Il server deve restare persistente perché il reboot del client altrimenti lo termina.
+The NBD initramfs loads the client only if `/etc/omamobile-nbd-server` is present. It waits up to 90 seconds for the host network, rejects an NBD device with zero capacity, and on error stays in the diagnostic shell without trying alternate mounts. The server must stay persistent, because a client reboot would otherwise stop it.
 
-Dopo ogni enumerazione, configurare l'indirizzo host prima che scada il retry. Il nome dell'interfaccia cambia a ogni boot; risalire dal suo path udev al device USB padre e richiedere `serial=dubai-rescue`. `PRODUCT=1d6b/104/*` è un ID gadget generico e non basta quando è collegato anche un altro dispositivo Linux. Non usare il nome precedente né il solo elenco delle interfacce USB.
+After every enumeration, configure the host address before the retry expires. The interface name changes on every boot; walk from its udev path to the parent USB device and require `serial=dubai-rescue`. `PRODUCT=1d6b/104/*` is a generic gadget ID and is not enough when another Linux device is also connected. Do not use the previous name or the USB interface list alone.
 
-Se ABL ha esaurito i retry e marca `_b` unbootable, verificare `product=dubai`, `running-bl-slot=_b/_b` e le immagini, quindi `fastboot -s "$FASTBOOT_SERIAL" set_active b` ripristina il solo slot di test. Non usare mai `_a` come fallback.
+If ABL has exhausted the retries and marks `_b` unbootable, verify `product=dubai`, `running-bl-slot=_b/_b`, and the images, then `fastboot -s "$FASTBOOT_SERIAL" set_active b` restores only the test slot. Never use `_a` as a fallback.
 
-## Stop e sintomi
+## Stop conditions and symptoms
 
-- Identità/slot non coerenti o checksum mancante: stop prima di scrivere.
-- Ritorno in fastboot dopo un nuovo test: rollback delle sole partizioni modificate.
-- Kernel attivo senza display: raccogliere SSH/ACM e dmesg; non cambiare DTS, kernel e bootloader insieme.
-- Qualunque LUN UFS non read-only: stop e nessun mount.
-- Niente erase, wipe, lock, scritture su super/userdata, modem/NV o calibrazioni. `set_active b` solo nel caso documentato sopra, mai su altri slot o dispositivi.
+- Identity/slot inconsistent, or checksum missing: stop before writing.
+- Return to fastboot after a new test: roll back only the partitions that were modified.
+- Kernel up without a display: collect SSH/ACM and dmesg; do not change the DTS, kernel, and bootloader together.
+- Any UFS LUN that is not read-only: stop, and do not mount it.
+- No erase, wipe, lock, or writes to super/userdata, modem/NV, or calibrations. `set_active b` only in the case documented above, never on other slots or devices.

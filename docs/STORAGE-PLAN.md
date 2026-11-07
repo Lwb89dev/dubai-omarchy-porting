@@ -1,31 +1,31 @@
 <!-- SPDX-License-Identifier: MIT -->
-# Piano storage e rootfs
+# Storage and rootfs plan
 
-## Regola fondamentale
+## Fundamental rule
 
-`userdata` è condivisa fra A e B. Scriverla o riformattarla elimina dati e configurazione usati da LineageOS su qualunque slot. La presenza di un secondo sistema Android non preserva quel contenuto.
+`userdata` is shared between A and B. Writing or reformatting it deletes data and configuration used by LineageOS on either slot. The presence of a second Android system does not preserve that content.
 
-La prima initramfs imposta tutti i dischi e le partizioni `/dev/sd*` in sola lettura, ripetutamente, senza allowlist. Non monta filesystem Android, non crea device-mapper, non apre `super`, non ridimensiona filesystem e non esegue `switch_root`.
+The first initramfs sets every disk and every `/dev/sd*` partition read-only, repeatedly, with no allowlist. It does not mount Android filesystems, does not create device-mapper devices, does not open `super`, does not resize filesystems, and does not run `switch_root`.
 
-## Opzioni
+## Options
 
-| Opzione | Preserva LineageOS | Rischio dati | Prestazioni/complessità | Recovery e aggiornamenti | Stato |
+| Option | Preserves LineageOS | Data risk | Performance/complexity | Recovery and updates | State |
 |---|---|---|---|---|---|
-| A. Rootfs in RAM/initramfs | Sì | Nessuna scrittura prevista | RAM limitata, sistema non persistente | Basta riavviare; aggiornamento = nuova immagine | **Scelta per M3**; boot non testato |
-| B. Rootfs su USB esterno | Potenzialmente sì | Basso per UFS, ma errori di selezione restano possibili | USB 2.0 nel DTS attuale, alimentazione e ruolo OTG da verificare | Dispositivo esterno sostituibile; update persistenti sul media | Futuro; host mode e boot da USB non dimostrati |
-| C. Rootfs in partizione/immagine interna dedicata | Solo se si trova spazio senza alterare dati | Alto: GPT, `super` o `userdata` possono essere coinvolti | Migliori prestazioni, layout complesso | Richiede backup, rollback e update specifici | Non autorizzato; nessun layout proposto come sicuro |
-| D. Rootfs su `userdata`, sostituendo Android | No | **Distruzione dei dati** | Semplice ereditando il builder Pixel | Slot A non ripristina i dati; recovery richiede reinstallazione/reset | Escluso dalle fasi iniziali; solo decisione futura esplicita |
+| A. Rootfs in RAM/initramfs | Yes | No write expected | Limited RAM, non-persistent system | Reboot is enough; an update is a new image | **Chosen for M3**; boot not tested |
+| B. Rootfs on external USB | Potentially yes | Low for UFS, but selection mistakes remain possible | USB 2.0 in the current DTS; power and OTG role still to verify | External device is replaceable; persistent updates on the media | Future; host mode and USB boot not demonstrated |
+| C. Rootfs in a dedicated internal partition/image | Only if space is found without altering data | High: GPT, `super`, or `userdata` may be involved | Better performance, complex layout | Requires a specific backup, rollback, and update plan | Not authorized; no layout proposed as safe |
+| D. Rootfs on `userdata`, replacing Android | No | **Data destruction** | Simple, by inheriting the Pixel builder | Slot A does not restore the data; recovery requires reinstall/reset | Excluded from the early phases; only a future explicit decision |
 
-## Sequenza raccomandata
+## Recommended sequence
 
-1. Diagnostica RAM, senza firmware modem e senza mount storage.
-2. Inventario read-only delle LUN UFS e dei nomi GPT, dopo verifica del guard.
-3. Rootfs Arch in RAM o eventualmente su USB esterna solo dopo test del ruolo host.
-4. Valutare storage interno solo con mappa completa delle partizioni fisiche/logiche, backup leggibili e piano di recovery.
-5. Non usare lo slot inattivo come prova che un'installazione sia reversibile.
+1. RAM diagnostics, with no modem firmware and no storage mount.
+2. Read-only inventory of the UFS LUNs and GPT names, after the guard is verified.
+3. Arch rootfs in RAM, or possibly on external USB, only after the host role is tested.
+4. Consider internal storage only with a complete map of physical/logical partitions, readable backups, and a recovery plan.
+5. Do not use the inactive slot as proof that an installation is reversible.
 
 ## Backup
 
-Un backup utile richiede accesso read-only ai block device, normalmente non disponibile da Android senza root. Non si assume che `adb`, fastboot o fastbootd possano leggere partizioni arbitrarie. Se il privilegio non è verificato, il backup è “non disponibile”, non simulato.
+A useful backup requires read-only access to the block devices, which is normally unavailable from Android without root. Do not assume that `adb`, fastboot, or fastbootd can read arbitrary partitions. If the privilege is not verified, the backup is "not available", not simulated.
 
-Le immagini di boot e le partizioni NV/calibrazione contengono dati sensibili o specifici del telefono. Si conservano fuori dal repository, con accesso ristretto e SHA-256; non in issue, CI o release. Un backup non verificato con seconda lettura/checksum non viene dichiarato valido.
+Boot images and NV/calibration partitions contain sensitive or phone-specific data. Keep them outside the repository, with restricted access and SHA-256; not in issues, CI, or releases. A backup that was not verified with a second read/checksum is not declared valid.
