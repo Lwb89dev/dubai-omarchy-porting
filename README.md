@@ -3,7 +3,7 @@
 
 Native AArch64 port based on mainline Linux, the existing Motorola Linux port, Arch Linux ARM, and the Omarchy Mobile shell. It does not use Android as a runtime, and it does not use proot, chroot, or Termux.
 
-**Current state: audit and offline builds. No boot or hardware test has been performed.** No image present here is approved for flashing. The CSOT/Tianma panel and bootloader support for `fastboot boot` must be verified on the device.
+**Current state: Alpha 0 and Alpha 1 reached on the owner's CSOT device, with the Alpha 2 software paths exercised.** Mainline Linux, Arch Linux ARM, systemd, pacman, SSH, accelerated Hyprland/Omarchy Mobile, touch, Wi-Fi, battery telemetry, and PipeWire playback/capture have run through the temporary NBD setup. Camera integration, long-term stability, and a clean boot from the rebuilt rootfs remain open; no daily-driver or general flashing compatibility is claimed.
 
 ## Goals and limits
 

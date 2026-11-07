@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 pkgname=omamobile-device-dubai
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Omarchy Mobile hardware-independent userspace policy for Motorola Edge 30 (dubai)"
 arch=(aarch64)
 url="https://github.com/derekross/omarchy-mobile"
@@ -16,6 +16,8 @@ package() {
     "$pkgdir/usr/lib/udev/rules.d/81-libssc-motorola-dubai.rules"
   install -Dm644 "$startdir/70-dubai-dma-heaps.rules" \
     "$pkgdir/usr/lib/udev/rules.d/70-dubai-dma-heaps.rules"
+  install -Dm644 "$startdir/50-dubai-disable-video.conf" \
+    "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/50-dubai-disable-video.conf"
   install -Dm644 "$startdir/20-usb-gadget.network" \
     "$pkgdir/usr/lib/systemd/network/20-usb-gadget.network"
   install -Dm644 "$startdir/10-omamobile-usb.conf" \

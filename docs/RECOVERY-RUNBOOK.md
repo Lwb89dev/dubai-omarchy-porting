@@ -42,16 +42,19 @@ From Android: `adb -s "$FASTBOOT_SERIAL" reboot bootloader`. From the initramfs 
 
 ## Rootfs without an internal installation
 
-The Arch/Omarchy rootfs is decompressed on the PC and served with qemu-nbd in snapshot mode. Writes stay in temporary overlays on the PC; the Motorola does not mount `userdata`, `super`, or other Android partitions.
+The Arch/Omarchy rootfs is decompressed on the PC and served through a persistent qcow2 overlay. Writes stay on the PC; the Motorola does not mount `userdata`, `super`, or other Android partitions. The explicit overlay survives a server restart, and two allowed clients prevent a stale connection from a previous boot from blocking the next one.
 
 ```sh
-qemu-nbd --format=raw --snapshot --persistent --bind=172.16.42.2 --port=10809 \
-  --export-name=omamobile work/rootfs-dubai-2026.11.07.img
+qemu-img create -f qcow2 -F raw \
+  -b "$PWD/work/rootfs-dubai-2026.11.07.img" work/rootfs-dubai-overlay.qcow2
+qemu-nbd --format=qcow2 --persistent --shared=2 --aio=threads --cache=none \
+  --bind=172.16.42.2 --port=10809 \
+  --export-name=omamobile work/rootfs-dubai-overlay.qcow2
 ```
 
 The NBD initramfs loads the client only if `/etc/omamobile-nbd-server` is present. It waits up to 90 seconds for the host network, rejects an NBD device with zero capacity, and on error stays in the diagnostic shell without trying alternate mounts. The server must stay persistent, because a client reboot would otherwise stop it.
 
-After every enumeration, configure the host address before the retry expires. The interface name changes on every boot; walk from its udev path to the parent USB device and require `serial=dubai-rescue`. `PRODUCT=1d6b/104/*` is a generic gadget ID and is not enough when another Linux device is also connected. Do not use the previous name or the USB interface list alone.
+After every enumeration, configure the host address before the retry expires. The interface name changes on every boot; walk from its udev path to the parent USB device and require `serial=dubai-rescue`. `PRODUCT=1d6b/104/*` is a generic gadget ID and is not enough when another Linux device is also connected. Do not use the previous name or the USB interface list alone. If another gadget shares `172.16.42.0/24`, add the source-specific route documented in `docs/BUILD.md` and use `BindAddress=172.16.42.2` for SSH; otherwise replies can use the wrong interface.
 
 If ABL has exhausted the retries and marks `_b` unbootable, verify `product=dubai`, `running-bl-slot=_b/_b`, and the images, then `fastboot -s "$FASTBOOT_SERIAL" set_active b` restores only the test slot. Never use `_a` as a fallback.
 

@@ -145,3 +145,36 @@
 - The generic qcm6490 zap blob causes Freedreno `ENXIO` errors. The dubai-specific blob pinned by pmaports, verified and kept private, allows Hyprland and Quickshell to start.
 - EGL reports Freedreno Adreno and OpenGL ES 3.2; DRM offers 1080×2400 at 48/60/90/120/144 Hz. Hyprland recognizes Goodix; `evtest` confirms coordinates, release, and multitouch, with DPMS wake on touch.
 - The rootfs rebuild with the updated modules is in progress; a complete firstboot and a boot without manual intervention remain to be validated.
+
+## 2026-11-07 — Clean boot, power, Wi-Fi and hardware follow-up
+
+- The clean NBD boot completed firstboot without manual Dropbear or UFW repairs. `firstboot.conf` was removed, Hyprland/Quickshell and Freedreno started, and UFW allowed SSH on `usb0`. Only Plymouth, NetworkManager-dispatcher and the known console-less systemd-firstboot failures remain.
+- ADSP firmware and its JSON metadata enable the PMIC battery service. Battery reads 99%/Full with real voltage, current and temperature; USB charging is reported. UPower energy fields remain zero and energy-rate is implausible, so telemetry is only partially correct.
+- The dubai WPSS firmware and WCN6750 board data enable `wld0`. A reload of `ath11k_ahb` was needed after the initial missing-firmware probe. Real WPA2 association, DHCP, DNS, Internet ping and HTTPS passed. Ath11k still reports a board-data/calibration fallback.
+- AW88261 firmware and the fixed UCM package create the Motorola-dubai card with Speaker and Mic3. Direct ALSA WAV playback completes; PipeWire creates the real nodes only after restarting the audio services, but stream linking/playback still times out and is not marked working.
+- A new udev rule grants the video group access only to the two CMA DMA heaps. This removes libcamera's allocator errors; FastRPC remains protected. R10_CSI2P debayer support, sensor metadata and color calibration remain open.
+- The private provisioning script now covers GPU, ADSP, WPSS, Wi-Fi board data and audio firmware. A full test on a temporary raw image passed content checks and `e2fsck`; no proprietary files enter the repository.
+- Captured recurring NBD stalls: reads, writes and flushes remained pending for over 120 seconds and journald hit watchdog failures. Changed the documented server invocation to threaded I/O with no host cache. A local 128 MiB TCP write/read/flush test passed, but no Motorola was connected, so the USB/NBD retest remains open.
+- Realigned the README, technical state and roadmap with the real Alpha 0/Alpha 1 and partial Alpha 2 results. Static checks and `git diff --check` pass; no device operation was performed in this follow-up.
+
+## 2026-11-07 — NBD recovery and PipeWire audio
+
+- Rebooted only the Motorola after its NBD-backed session froze, then used the verified CSOT image with `fastboot boot`. Identified the rescue gadget by its logical serial and configured only its host interface.
+- Found that another USB device used the same `172.16.42.0/24` addresses: replies from `172.16.42.2` initially took the wrong interface. Added a source-specific policy route for the Motorola; the other device's route stayed unchanged. Ping and NBD then connected.
+- qemu-nbd threaded/no-cache completed the full firstboot and later audio tests with no stuck-request messages. All UFS LUNs remained read-only; Hyprland, Quickshell, battery and charging were verified again.
+- The raw image predated the current package list and lacked the dubai UCM profile and latest device rules. Restored correct time and the locally signed public key, then installed `omamobile-ucm-dubai` 0.1.0-2 without disabling signature checks. UCM HiFi created the real sink/source.
+- Isolated the remaining PipeWire timeout: the audio stream's WirePlumber event stayed queued behind video enumeration, leaving both nodes without negotiated ports. Disabling `hardware.video-capture` made playback complete immediately.
+- Added the video-monitor workaround and DMA heap rules to `omamobile-device-dubai` 0.1.0-3, built and installed the signed local package, removed the manual overrides, and repeated playback successfully using only package configuration. Microphone capture also passed; 20% gain avoided the clipping seen at 100%.
+- Speaker audibility is still to be confirmed by the owner. Rebuild the raw rootfs before the next clean boot so these packages do not depend on manual installation.
+
+## 2026-11-07 — Speaker hardware and S32 follow-up
+
+- The owner heard no tone at 10%, 30% or 50% despite completed PipeWire streams. No 100% test was attempted because the amplifier path is not qualified.
+- During playback, MultiMedia1 and Senary MI2S start with valid routing; both AW88261 DAPM paths and DACs are on. Dynamic debug reports `start success` on both amplifiers.
+- Android configures `SEN_MI2S_RX` as S32_LE, while the mainline SM8250 fixup forces S16_LE and a 1.536 MHz bit clock. Prepared a dubai-compatible-specific patch selecting S32_LE and 3.072 MHz only for that backend; checkpatch passes with no errors or warnings.
+- The LLVM test build could not start because `ld.lld` is absent. A separate GCC build is used for this functional test; no toolchain comparison is being made.
+- A later isolated NBD stuck-write warning shows that threaded/no-cache mode did not eliminate the issue permanently. Keep extended NBD stability open.
+- The GCC S32 kernel build succeeded with verified SHA-256 artifacts. Built `out/images-gcc-s32/boot-dubai-csot-UNTESTED.img` and updated the modules in the active NBD snapshot; `depmod` and the sm8250 module vermagic pass. No reboot or S32 hardware test has happened yet.
+- The first S32 Arch attempt produced a black/unresponsive session and no SSH. After an authorized diagnostic reboot, the same kernel is healthy in rescue; pstore has no previous-boot records. The S32 audio path remains untested.
+- Preserved the temporary NBD snapshot as a checked qcow2 overlay and documented an explicit persistent overlay plus `--shared=2`; this avoids losing work and rejects no new boot because of a stale client. The initial ext4 check found an unreplayed journal and dirty counters from the stopped session; repaired only a raw copy, replayed the journal, and obtained a clean `e2fsck -fn`. Created `work/rootfs-dubai-s32-ready.qcow2` on that clean backing image.
+- Both GCC/S32 Arch attempts were unresponsive. Booting the previous LLVM kernel with GCC modules is invalid: the kernel reports a struct-module size mismatch. Downloaded and extracted Ubuntu `lld-18` into `work/toolchain-lld` without sudo or host installation; the matching LLVM/S32 build then completed with all SHA-256 checks. Started a coherent Arch/Omarchy rootfs rebuild using that exact `KERNEL_OUT`.

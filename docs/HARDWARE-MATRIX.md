@@ -12,15 +12,15 @@ Legend: **S** = present in the sources; **B** = built; **R** = detected on the p
 | Touch | Goodix GT9916 on SPI13, Berlin core/SPI | Modules configured | **T:** Goodix detected by Hyprland; coordinates, pressure, release, and multitouch slots verified with `evtest` |
 | UFS storage | Host/PHY okay, supplies and reset | Built-in driver | **R/T guard:** six Micron LUNs detected; `blockdev --getro` = 1 on all of them; no Android mount |
 | USB-C | Qualcomm DWC3, USB2 HS, PMIC GLINK, FSA4480 | DWC3/NCM/ACM configured | **T gadget:** NCM, ACM, ping, and SSH verified; OTG/charging not tested |
-| WCN6750 Wi-Fi | Node okay, ath11k AHB, Motorola_dubai calibration | ath11k=m | NV; firmware and network not tested |
-| WCN6750 Bluetooth | UART7, PMU, hci_qca | Modules configured | NV; pairing/A2DP not tested |
-| Audio | WCD9375, two AW88261, QDSP6, ADSP, UCM fork | Drivers/modules configured | NV; no sound test or protection check |
-| Battery | `CONFIG_BATTERY_QCOM_BATTMGR=y`, PMIC GLINK | Configured | NV; UPower and accuracy not tested |
-| Charging | PMIC GLINK/USB-C and thermal in the DTS | Drivers present | NV; limits and safety not tested |
-| Sensors | FastRPC/CDSP and mount-matrix rule | FastRPC module | NV; libssc/hexagonrpcd and sensors not tested |
+| WCN6750 Wi-Fi | Node okay, ath11k AHB, Motorola_dubai calibration | ath11k=m | **T:** WPSS/ath11k active; real scan, WPA2 DHCP/DNS, Internet and HTTPS verified; board-data warning remains |
+| WCN6750 Bluetooth | UART7, PMU, hci_qca | Modules configured | **R:** hci0 detected and firmware loaded; pairing/A2DP not tested |
+| Audio | WCD9375, two AW88261, QDSP6, ADSP, UCM fork | UCM 0.1.0-2 installed | **P:** PipeWire playback/capture and DAPM start pass, but no audible speaker output at 10–50%; S32 clock/format test pending; video enumeration disabled |
+| Battery | `CONFIG_BATTERY_QCOM_BATTMGR=y`, PMIC GLINK | Configured | **T/P:** ADSP enables real capacity/status/temperature and UPower; energy fields/rate are incorrect |
+| Charging | PMIC GLINK/USB-C and thermal in the DTS | Drivers present | **T/P:** USB online and charging reported with plausible V/I; suspend and long-term safety not tested |
+| Sensors | FastRPC/CDSP and mount-matrix rule | FastRPC module | **R/P:** ADSP FastRPC active; CDSP, libssc/hexagonrpcd and sensor service not integrated |
 | Fingerprint | Pins/SPI reserved in the DTS; no demonstrated userspace support | NV | NV; no RPMB modification allowed |
 | Modem | MPSS remoteproc, IPA, QRTR/QMI, Q6Voice | Modules/drivers present | NV; SIM/data/SMS/calls/IMS not tested |
-| Cameras | CAMSS/CCI, S5KJN1 and GC02M1B in the DTS | CAMSS module | NV; other sensors and libcamera not verified |
+| Cameras | CAMSS/CCI, S5KJN1 and GC02M1B in the DTS | CAMSS module | **P:** sensors detected and CMA permissions fixed; WirePlumber video disabled because its event queue blocks audio; R10_CSI2P and calibration open |
 | Suspend/resume | Partial wakeup nodes and pinctrl | Generic support | NV; s2idle not enabled by default |
 | Thermal | TSENS/PMIC ADC, several zones; PA2 disabled | Built-in drivers | NV; thresholds and power draw not tested |
 | Vibrator | AW86224 pins named, no complete driver node | NV | NV |

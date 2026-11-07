@@ -61,7 +61,7 @@ The output contains `UNTESTED` and a `NOT-FOR-FLASH` marker. Compiling does not 
 
 `scripts/build-rootfs.sh --prepare-only` creates `work/omarchy-dubai` at the pinned upstream revision and applies only this port's descriptors, device package, and package list. The upstream sources stay unchanged.
 
-`scripts/build-rootfs.sh --build` uses the upstream scripts: it creates an unpublished local key, downloads in parallel only the dubai packages with index/signatures/SHA-256 verified, builds only `omamobile-device-dubai`, uses ALARM Mesa with Freedreno, and invokes `tools/build-rootfs`. For library consistency, Hyprland 0.57.1-2 and aquamarine 0.16.0-1.1 come from the signed Omarchy edge binaries pinned in `sources.lock`; Omarchy stays at pin 4.0.6. It requires the module tarball of the same kernel. Log in `out/rootfs/logs/build.log`. It does not write to the phone.
+`scripts/build-rootfs.sh --build` uses the upstream scripts: it creates an unpublished local key, downloads in parallel only the dubai packages with index/signatures/SHA-256 verified, builds only `omamobile-device-dubai` and `omamobile-ucm-dubai`, uses ALARM Mesa with Freedreno, and invokes `tools/build-rootfs`. For library consistency, Hyprland 0.57.1-2 and aquamarine 0.16.0-1.1 come from the signed Omarchy edge binaries pinned in `sources.lock`; Omarchy stays at pin 4.0.6. It requires the module tarball of the same kernel. Log in `out/rootfs/logs/build.log`. It does not write to the phone.
 
 The image, checksum, and manifest are published in `work/omarchy-dubai/out/dubai/` as `omamobile-rootfs-dubai-<date>-aarch64.img.zst`, `.img.zst.sha256`, and `.MANIFEST`. The builder automatically runs `tests/rootfs-smoke` before publication; a successful rootfs build is not the same as a verified boot on the device.
 
@@ -79,19 +79,36 @@ KERNEL_OUT="$PWD/out/kernel-llvm" \
   IMAGE_OUT="$PWD/out/images-nbd" PANEL=csot scripts/build-images.sh
 ```
 
-`KERNEL_OUT` is also accepted by `scripts/build-rootfs.sh --build` so the kernel and modules stay consistent. The server uses a raw copy and temporary snapshots:
+`KERNEL_OUT` is also accepted by `scripts/build-rootfs.sh --build` so the kernel and modules stay consistent. The server uses a raw backing image and a persistent qcow2 overlay:
 
 ```sh
 zstd -q -d --sparse -f \
   work/omarchy-dubai/out/dubai/omamobile-rootfs-dubai-2026.11.07-aarch64.img.zst \
   -o work/rootfs-dubai-2026.11.07.img
 FIRSTBOOT_CONF=<private-firstboot.conf> SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
-  DUBAI_ZAP_FIRMWARE=<private-dubai-a660_zap.mbn> scripts/provision-nbd-rootfs.sh
-qemu-nbd --format=raw --snapshot --persistent --bind=172.16.42.2 --port=10809 \
-  --export-name=omamobile work/rootfs-dubai-2026.11.07.img
+  DUBAI_ZAP_FIRMWARE=<private-dubai-a660_zap.mbn> \
+  DUBAI_ADSP_DIR=<private-adsp-directory> DUBAI_WPSS_FIRMWARE=<private-wpss.mbn> \
+  DUBAI_WIFI_BOARD=<private-WCN6750-board-2.bin> \
+  DUBAI_AUDIO_FIRMWARE=<private-aw88261_acf.bin> scripts/provision-nbd-rootfs.sh
+qemu-img create -f qcow2 -F raw \
+  -b "$PWD/work/rootfs-dubai-2026.11.07.img" work/rootfs-dubai-overlay.qcow2
+qemu-nbd --format=qcow2 --persistent --shared=2 --aio=threads --cache=none \
+  --bind=172.16.42.2 --port=10809 \
+  --export-name=omamobile work/rootfs-dubai-overlay.qcow2
 ```
 
-Provisioning changes only the raw copy and checks the content and ext4. The local repository public key must be added and signed locally on the phone as an owner action (`pacman-key --add`, then `pacman-key --lsign-key` with the build fingerprint); it is not inserted into the upstream keyring.
+After each Motorola enumeration, require the logical USB serial `dubai-rescue`, then bind the existing host profile to that interface. The source-specific route prevents replies from `172.16.42.2` from using another gadget that happens to share the same subnet:
+
+```sh
+nmcli connection modify dubai-rescue-usb \
+  connection.interface-name <motorola-interface> \
+  ipv4.method manual ipv4.addresses 172.16.42.2/24 \
+  ipv4.routes '172.16.42.0/24 table=100' \
+  ipv4.routing-rules 'priority 100 from 172.16.42.2 table 100'
+nmcli connection up dubai-rescue-usb ifname <motorola-interface>
+```
+
+Use `ssh -o BindAddress=172.16.42.2 ...` while another device shares that subnet. Provisioning changes only the raw copy and checks the content and ext4. The local repository public key must be added and signed locally on the phone as an owner action (`pacman-key --add`, then `pacman-key --lsign-key` with the build fingerprint); it is not inserted into the upstream keyring.
 
 `--persistent` stops the server from exiting when the client disconnects. The initramfs waits up to 90 seconds for the host to configure `172.16.42.2/24` and checks that `/dev/nbd0` has non-zero capacity before the mount. Root in the initramfs has an empty password because Alpine 3.24 marks it locked and Dropbear would then reject the key as well; Dropbear is still started with `-s -g`, so SSH login stays public-key only.
 

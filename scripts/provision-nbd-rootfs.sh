@@ -10,8 +10,9 @@ ZAP=${DUBAI_ZAP_FIRMWARE:?Set DUBAI_ZAP_FIRMWARE to the private dubai zap firmwa
 ADSP_DIR=${DUBAI_ADSP_DIR:?Set DUBAI_ADSP_DIR to the private adsp firmware directory}
 WPSS=${DUBAI_WPSS_FIRMWARE:?Set DUBAI_WPSS_FIRMWARE to the private wpss.mbn}
 BOARD=${DUBAI_WIFI_BOARD:?Set DUBAI_WIFI_BOARD to the private WCN6750 board-2.bin}
+AUDIO=${DUBAI_AUDIO_FIRMWARE:?Set DUBAI_AUDIO_FIRMWARE to the private aw88261_acf.bin}
 
-for file in "$IMG" "$CONF" "$PUB" "$ZAP" "$WPSS" "$BOARD"; do
+for file in "$IMG" "$CONF" "$PUB" "$ZAP" "$WPSS" "$BOARD" "$AUDIO"; do
     [[ -f $file ]] || { echo "Missing file: $file" >&2; exit 1; }
     [[ $file != *[[:space:]]* ]] || { echo "Paths with whitespace are not supported: $file" >&2; exit 1; }
 done
@@ -58,11 +59,12 @@ sif /root/.ssh/authorized_keys uid 0
 sif /root/.ssh/authorized_keys gid 0
 EOF
 
-sources=("$ZAP" "$WPSS" "$BOARD")
+sources=("$ZAP" "$WPSS" "$BOARD" "$AUDIO")
 dests=(
     /usr/lib/firmware/qcom/sm7325/motorola/dubai/a660_zap.mbn
     /usr/lib/firmware/qcom/sm7325/motorola/dubai/wpss.mbn
     /usr/lib/firmware/ath11k/WCN6750/hw1.0/board-2.bin
+    /usr/lib/firmware/qcom/sm7325/motorola/dubai/aw88261_acf.bin
 )
 for file in "$ADSP_DIR"/adsp.mbn "$ADSP_DIR"/adsp*.jsn; do
     [[ -f $file && $file != *[[:space:]]* ]] || { echo "Invalid ADSP firmware: $file" >&2; exit 1; }
