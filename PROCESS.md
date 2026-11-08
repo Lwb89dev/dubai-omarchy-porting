@@ -10,7 +10,7 @@ Updated: 2026-11-08.
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
 - **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`.
 - **Arch Linux ARM:** rootfs `2026.11.08` with stable LLVM modules; SHA-256, smoke test, clean RNDIS/NBD firstboot, pacman, and SSH passed.
-- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. Speaker playback uses the hardware-verified `0001-sm8250-dubai-s32-speaker.patch` and `0002-qdsp6-s32-pcm-mapping.patch`; camera selection and battery telemetry patches `0003`–`0005` build offline but are not on the running kernel. RNDIS is the working NBD transport.
+- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. All five speaker/camera/battery patches are on the running kernel; S32 audio, S5KJN1 selection and battery charge telemetry have passed on hardware. RNDIS is the working NBD transport.
 
 ## Builds and tests
 
@@ -22,7 +22,7 @@ Updated: 2026-11-08.
 | Initramfs build | **Pass** | RAM-only, reproducible; variants with modules, SSH, dubai firmware, and NBD |
 | Arch/Omarchy GCC rootfs | **Pass offline** | Checksums and smoke test passed |
 | Arch/Omarchy LLVM rootfs | **Pass offline** | Checksum, smoke test, and e2fsck of the NBD copy passed |
-| Device/UCM packages | **Pass on device** | `omamobile-device-dubai` 0.1.0-5 and `omamobile-ucm-dubai` 0.1.0-2 installed and exercised |
+| Device/UCM packages | **Pass on device** | `omamobile-device-dubai` 0.1.0-6 and `omamobile-ucm-dubai` 0.1.0-2 installed and exercised |
 | Boot-chain backup | **Pass** | Eight original images, two matching SHA-256 reads |
 | Mainline boot without an empty DTBO | **Fail** | GCC/LLVM/Nura return to fastboot; no shell |
 | Mainline boot with an empty DTBO | **Pass M3** | Kernel 7.2.9-dubai+, CSOT model, ACM/NCM/SSH active |
@@ -31,10 +31,10 @@ Updated: 2026-11-08.
 | Storage guard | **Pass** | Every `sda`–`sdf` LUN read-only; no Android mount |
 | Accelerated GPU | **Pass on device** | EGL Freedreno Adreno, OpenGL ES 3.2; a dubai-specific zap is required |
 | Wi-Fi | **Pass on device** | WPSS/ath11k, WPA2, DHCP, DNS, Internet ping, and HTTPS; calibration fallback warning remains |
-| Bluetooth | **Pass on device** | Local address, LE scan, PC pairing/connection, A2DP sink and playback verified; automatic udev setup needs a future boot test |
+| Bluetooth | **Pass on device; boot automation partial** | Pairing/A2DP pass; the first udev helper raced firmware setup, runtime configuration was recovered, and the revised helper needs another boot test |
 | Audio | **Pass on device** | UCM HiFi, PipeWire playback/capture and a clearly audible 10-second ALSA tone at 50%; backend S32_LE with Q6 mapping verified; playback also passes with libcamera nodes active |
-| Battery/charging | **Partial; fixes offline** | Real capacity/status/voltage/current/temperature and USB charging; `0004`/`0005` address the unreadable charge levels and invalid SM7325 power property, but need a future boot test |
-| Cameras | **Streaming and gain helpers pass; quality partial** | libcamera 0.7.2-4.24 recognizes both gain models; five/30-frame captures and audio pass on both sensors; image quality, metadata, and calibration open |
+| Battery/charging | **Telemetry pass; state partial** | Charge/full/energy and V×I rate are now real and POWER_NOW is hidden; UPower still reports discharging while the kernel reports charging |
+| Cameras | **Selection, streaming and gain helpers pass; quality partial** | S5KJN1 reports 8160×6144 correctly; libcamera 0.7.2-4.24 recognizes both gain models; captures and audio pass; calibration open |
 | qemu-nbd transport | **Pass with RNDIS; fail with NCM** | RNDIS passed 30 direct-I/O reads of 512 MiB over 39 minutes with no NBD/I/O errors; NCM previously stalled while ACM survived |
 | LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
 
@@ -46,7 +46,7 @@ Updated: 2026-11-08.
 - ACM/kmsg disproved the initial S32-crash hypothesis: NCM repeatedly stalled NBD requests while the kernel and ACM stayed alive. RNDIS completed the same rootfs boot and audio tests without stalls. The final S32 mask and Q6 mapping patches produced a clearly audible 10-second tone at 50%.
 - The V4L2 monitor receives `ENOMEM` opening `/dev/video0` and leaves the shared WirePlumber event queue stuck before the libcamera hooks. `omamobile-device-dubai` 0.1.0-5 disables only `monitor.v4l2`; libcamera creates both video sources and PipeWire audio still passes.
 - GStreamer/PipeWire camera capture passes on both sensors with normal autolinking and native RGBA caps. The earlier no-link capture used `autoconnect=false`, which intentionally excludes the stream from WirePlumber linking.
-- Bluetooth starts as an unconfigured controller because it lacks a public address. The device package derives a stable locally administered address from `machine-id`; manual configuration, LE discovery, PC pairing, A2DP and cleanup passed. Automatic udev activation remains unverified until a reboot.
+- Bluetooth starts without a public address. The device package derives a stable local address from `machine-id`; pairing/A2DP pass. The first udev attempt ran before firmware setup completed and left the controller unconfigured; manual address setup plus power-on recovered it. The revised retrying helper needs a future boot test.
 - Modem, suspend, sensors, and camera image quality/calibration are not qualified.
 - Proprietary firmware is not published; the NBD artifacts and captures are local only.
 
@@ -56,4 +56,4 @@ Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualificat
 
 ## Next step
 
-On a future authorized boot, use the matching `out/kernel-llvm-telemetry` modules and verify automatic Bluetooth setup plus the S5KJN1 selection and battery telemetry fixes; the CSOT image is in `out/images-telemetry`. Camera calibration, suspend and modem remain later gates.
+Verify the revised Bluetooth helper on a future authorized boot and resolve UPower's charging-state override. Camera calibration, suspend, modem and persistent installation remain later gates.

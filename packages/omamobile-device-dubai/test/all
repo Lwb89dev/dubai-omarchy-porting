@@ -17,6 +17,8 @@ grep -q '50-dubai-libcamera-only.conf' PKGBUILD
 bash -n dubai-bluetooth-address
 grep -q 'missing options: public-address' dubai-bluetooth-address
 grep -q 'public-addr' dubai-bluetooth-address
+grep -q 'power on' dubai-bluetooth-address
+grep -q 'attempt < 30' dubai-bluetooth-address
 grep -q 'omamobile-dubai-bluetooth-address@%k.service' 75-dubai-bluetooth.rules
 grep -q 'ExecStart=/usr/lib/omamobile/dubai-bluetooth-address %i' omamobile-dubai-bluetooth-address@.service
 echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, and carries no storage allowlist'
