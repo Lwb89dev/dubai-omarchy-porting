@@ -220,3 +220,54 @@
 - Forcing S32 initially exposed `-EINVAL` in the DSP path. Added patch 0002 to map S32_LE to 32 bits in Q6ASM and Q6Routing while allowing the frontend to remain S16/S24 for ADM conversion.
 - The final S32/Q6 set booted through RNDIS and completed firstboot. During a 10-second 440 Hz ALSA tone at 50%, MultiMedia1 used S16_LE and Senary MI2S used **S32_LE**; playback completed and the owner clearly heard the tone.
 - Saved both final patches, verified that they apply to the pinned source, ran checkpatch on the complete kernel diff with zero errors/warnings, and repeated static checks. This is a real speaker hardware result, not only a completed software stream.
+
+## 2026-11-08 — Final PipeWire path and WirePlumber camera localization
+
+- On the final S32/Q6 set, a 10-second PipeWire tone at 50% completed with MultiMedia1 S24_LE and the Senary backend S32_LE. No NBD stuck requests, I/O errors, AW88261 start failures, or new DSP errors appeared; uptime exceeded ten minutes.
+- Real battery telemetry reported 91%, charging/USB online, and 27 °C. UPower energy and energy-rate remain incorrect as already documented.
+- Enabled video temporarily with the correct WirePlumber profile value `required`. Both cameras were enumerated, with the known missing metadata/calibration and R10_CSI2P debayer warnings, but no video nodes were created.
+- Instrumenting `create-device.lua` proved that execution never reaches `device:activate()`: the `create-libcamera-device` event stays queued before its hook. Restored the original Lua script, removed the temporary override, unset debug, and restarted WirePlumber with the packaged safe configuration.
+- Wi-Fi remained disconnected in this fresh boot; no credentials were collected and no new Wi-Fi result is claimed. Documentation changes from this follow-up are local and uncommitted.
+
+## 2026-11-08 — Wi-Fi reconnected on the final RNDIS/S32 boot
+
+- The owner connected `wld0` through the UI. DHCP assigned a valid address and default route; DNS resolution and three Internet pings passed with no loss.
+- HTTPS returned 200 from both `example.com` and `archlinux.org`, with successful TCP and TLS negotiation.
+- GitHub completed TCP/TLS but did not return an HTTP response within 15 seconds. Other sites passed, so this is recorded as destination-specific and not as a general Wi-Fi failure.
+- Set the test user's password to the owner-requested test value and verified sudo. It applies to the PAM lock path and is recorded only in the private notes for future test installations.
+
+## 2026-11-08 — WirePlumber V4L2 stall isolated; libcamera enabled
+
+- Re-examined the complete event log against WirePlumber 0.5.18 source. Before the libcamera events, the V4L2 monitor repeatedly failed to open `/dev/video0` with `ENOMEM`; its asynchronous device activation left the shared event dispatcher blocked, so the queued libcamera hooks were a consequence, not the root cause.
+- Enabled `hardware.video-capture` while disabling only `monitor.v4l2`. Both libcamera devices and both `Video/Source` nodes appeared, and PipeWire playback completed with the expected S24_LE frontend.
+- Moved the workaround into `omamobile-device-dubai` 0.1.0-4, built and signed the AArch64 package, verified its contents/signature, installed it, removed the temporary user override, and repeated the camera-node and audio tests successfully with package configuration alone.
+- Direct `cam` already captured one frame from each sensor, but a GStreamer PipeWire source selected by node name remains paused without format negotiation or frames. Camera client streaming and image quality/calibration remain open; no full camera functionality is claimed.
+- Repeated package and repository static checks successfully. No reboot, flash, slot, or internal-storage operation was performed.
+
+## 2026-11-08 — PipeWire camera streaming verified on both sensors
+
+- Captured the live graph during the failing GStreamer test: the libcamera node enumerated native RGBA/RGBx formats, but no link existed because the test explicitly set `autoconnect=false`. WirePlumber's debug log confirmed that it skipped the stream for that reason.
+- A manual RGBA link started libcamera and delivered a frame, isolating the test setup from the camera path. Repeating the client with normal autolinking then completed successfully.
+- Captured five 640×480 RGBA frames from each sensor through GStreamer → PipeWire → libcamera. Both output files had the exact expected size; converted final frames are non-empty but dark and uncalibrated, so image quality remains unqualified.
+- PipeWire playback completed again after both camera captures, and no NBD, amplifier, or DSP failure appeared in the checked kernel log. No additional camera patch was needed beyond the libcamera-only WirePlumber configuration.
+
+## 2026-11-08 — Bluetooth pairing/A2DP and battery telemetry follow-up
+
+- BlueZ initially saw no default controller even though hci0 firmware loading had completed. Extended management information identified an unconfigured UART controller with `public-address` missing.
+- Configured a stable locally administered runtime address using the same machine/serial-derived approach as bootmac. LE discovery then found nearby devices; no identifier was added to public documentation.
+- Pairing with the host initially failed because the test's default agent raced agent registration. Repeating with the agent ready produced a successful paired/bonded connection. BlueZ/WirePlumber created the host A2DP sink and `pw-cat` playback completed at stream volume 0.1.
+- Removed the test pairing from both systems, restored host discoverability and phone pairability, and left the phone controller powered with its runtime address. No NV or internal-storage write occurred.
+- Added an idempotent address helper, udev rule and oneshot service to `omamobile-device-dubai` 0.1.0-5. Built/signed/installed the package and verified successful no-op execution on the already configured controller. Automatic activation at boot remains untested without a reboot.
+- Battery sysfs has valid capacity, voltage, current and temperature, but `charge_full`/`charge_full_design` are unreadable and firmware `power_now` is about 57 W while V×I is about 1.4 W. UPower 1.91.5 therefore reports zero energy and that invalid rate; no unjustified capacity estimate or kernel workaround was added.
+
+## 2026-11-08 — S5KJN1 selection fix and repeatable camera test
+
+- Found the source of libcamera's square active-area fallback in `s5kjn1_get_selection()`: the driver used the mode width for `height` and lacked `V4L2_SEL_TGT_CROP_DEFAULT` and `V4L2_SEL_TGT_NATIVE_SIZE`. The same defect is present in the current upstream driver.
+- Added `0003-s5kjn1-selection.patch`, returning the real current-mode dimensions and the native 8160×6144 array. The patch applies cleanly and checkpatch reports no errors or warnings without requiring an AI sign-off.
+- Built the complete LLVM kernel in an isolated worktree with all three port patches. Image, both DTBs, config and 636-entry module archive passed SHA-256 and offline verification; the config matches the controlled LLVM build. No new kernel was installed or booted.
+- Added `tests/camera-pipewire.sh` to discover both sources dynamically and verify five 640×480 RGBA frames per sensor. The test passed on the running phone and static ShellCheck/syntax coverage now includes it.
+
+## 2026-11-08 — Extended RNDIS/NBD stability check
+
+- Completed 30 direct-I/O reads of 512 MiB from `/dev/nbd0`, one per minute plus transfer time, between 14:02 and 14:40 CET. The sequence transferred about 15 GiB over 39 minutes without a failed SSH/read iteration.
+- The final kernel-log filter found no NBD stalls, blocked-request warnings or I/O errors. SSH, Bluetooth, PipeWire and WirePlumber remained active afterwards. This improves confidence in RNDIS/NBD but is not a persistent-installation or suspend qualification.

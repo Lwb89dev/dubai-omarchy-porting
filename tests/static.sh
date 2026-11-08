@@ -10,7 +10,7 @@ done
 for test in packages/*/test/all; do
     "$test"
 done
-for script in scripts/*.sh; do
+for script in scripts/*.sh tests/*.sh; do
     bash -n "$script"
     shellcheck -x "$script"
 done

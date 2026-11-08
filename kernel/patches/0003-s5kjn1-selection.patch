@@ -1,0 +1,31 @@
+Subject: [PATCH] media: i2c: s5kjn1: fix sensor selection rectangles
+
+The driver reported the current mode width as both rectangle dimensions
+and did not provide the default crop or native size. Return the current
+mode height correctly and expose the full 8160x6144 array through
+V4L2_SEL_TGT_NATIVE_SIZE so userspace does not fall back to a square
+active area.
+---
+diff --git a/drivers/media/i2c/s5kjn1.c b/drivers/media/i2c/s5kjn1.c
+--- a/drivers/media/i2c/s5kjn1.c
++++ b/drivers/media/i2c/s5kjn1.c
+@@ -1076,11 +1076,18 @@ static int s5kjn1_get_selection(struct v4l2_subdev *sd,
+ 	switch (sel->target) {
+ 	case V4L2_SEL_TGT_CROP:
++	case V4L2_SEL_TGT_CROP_DEFAULT:
+ 	case V4L2_SEL_TGT_CROP_BOUNDS:
+ 		sel->r.left = 0;
+ 		sel->r.top = 0;
+ 		sel->r.width = s5kjn1->mode->width;
+-		sel->r.height = s5kjn1->mode->width;
++		sel->r.height = s5kjn1->mode->height;
++		return 0;
++	case V4L2_SEL_TGT_NATIVE_SIZE:
++		sel->r.left = 0;
++		sel->r.top = 0;
++		sel->r.width = 8160;
++		sel->r.height = 6144;
+ 		return 0;
+ 	default:
+ 		return -EINVAL;
+ 	}

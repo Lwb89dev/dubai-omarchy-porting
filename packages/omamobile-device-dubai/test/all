@@ -11,6 +11,12 @@ cmp device.conf ../../device/dubai/device.conf >/dev/null 2>&1 || {
 grep -qx 'BOOT_METHOD=ram-only' device.conf
 grep -qx 'BOOT_IMAGES=""' device.conf
 grep -qx 'UFS_RW=""' device.conf
-grep -qx '    hardware.video-capture = disabled' 50-dubai-disable-video.conf
-grep -q '50-dubai-disable-video.conf' PKGBUILD
-echo 'ok dubai package is RAM-only, disables broken video enumeration, and carries no storage allowlist'
+grep -qx '    hardware.video-capture = required' 50-dubai-libcamera-only.conf
+grep -qx '    monitor.v4l2 = disabled' 50-dubai-libcamera-only.conf
+grep -q '50-dubai-libcamera-only.conf' PKGBUILD
+bash -n dubai-bluetooth-address
+grep -q 'missing options: public-address' dubai-bluetooth-address
+grep -q 'public-addr' dubai-bluetooth-address
+grep -q 'omamobile-dubai-bluetooth-address@%k.service' 75-dubai-bluetooth.rules
+grep -q 'ExecStart=/usr/lib/omamobile/dubai-bluetooth-address %i' omamobile-dubai-bluetooth-address@.service
+echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, and carries no storage allowlist'

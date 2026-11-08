@@ -10,7 +10,7 @@ Updated: 2026-11-08.
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
 - **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`.
 - **Arch Linux ARM:** rootfs `2026.11.08` with stable LLVM modules; SHA-256, smoke test, clean RNDIS/NBD firstboot, pacman, and SSH passed.
-- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. Speaker playback uses the hardware-verified `0001-sm8250-dubai-s32-speaker.patch` and `0002-qdsp6-s32-pcm-mapping.patch`; RNDIS is the working NBD transport.
+- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. Speaker playback uses the hardware-verified `0001-sm8250-dubai-s32-speaker.patch` and `0002-qdsp6-s32-pcm-mapping.patch`; `0003-s5kjn1-selection.patch` builds offline but is not on the running kernel. RNDIS is the working NBD transport.
 
 ## Builds and tests
 
@@ -22,7 +22,7 @@ Updated: 2026-11-08.
 | Initramfs build | **Pass** | RAM-only, reproducible; variants with modules, SSH, dubai firmware, and NBD |
 | Arch/Omarchy GCC rootfs | **Pass offline** | Checksums and smoke test passed |
 | Arch/Omarchy LLVM rootfs | **Pass offline** | Checksum, smoke test, and e2fsck of the NBD copy passed |
-| Device/UCM packages | **Pass on device** | `omamobile-device-dubai` 0.1.0-3 and `omamobile-ucm-dubai` 0.1.0-2 installed and exercised |
+| Device/UCM packages | **Pass on device** | `omamobile-device-dubai` 0.1.0-5 and `omamobile-ucm-dubai` 0.1.0-2 installed and exercised |
 | Boot-chain backup | **Pass** | Eight original images, two matching SHA-256 reads |
 | Mainline boot without an empty DTBO | **Fail** | GCC/LLVM/Nura return to fastboot; no shell |
 | Mainline boot with an empty DTBO | **Pass M3** | Kernel 7.2.9-dubai+, CSOT model, ACM/NCM/SSH active |
@@ -31,11 +31,11 @@ Updated: 2026-11-08.
 | Storage guard | **Pass** | Every `sda`–`sdf` LUN read-only; no Android mount |
 | Accelerated GPU | **Pass on device** | EGL Freedreno Adreno, OpenGL ES 3.2; a dubai-specific zap is required |
 | Wi-Fi | **Pass on device** | WPSS/ath11k, WPA2, DHCP, DNS, Internet ping, and HTTPS; calibration fallback warning remains |
-| Bluetooth | **Detected only** | hci0 firmware loads; pairing and A2DP not tested |
-| Audio | **Pass on device** | UCM HiFi, PipeWire playback/capture and a clearly audible 10-second ALSA tone at 50%; backend S32_LE with Q6 mapping verified; video enumeration remains disabled |
-| Battery/charging | **Partial** | Real capacity/status/voltage/current/temperature and USB charging; UPower energy/rate incorrect |
-| Cameras | **Partial, WirePlumber disabled** | Two sensors detected and CMA permissions fixed; their WirePlumber enumeration blocks audio linking; debayer, metadata, and calibration open |
-| qemu-nbd transport | **Pass with RNDIS; fail with NCM** | kmsg proved recurring NCM request stalls while ACM survived; RNDIS passed firstboot and audio without stalls, but extended stability remains open |
+| Bluetooth | **Pass on device** | Local address, LE scan, PC pairing/connection, A2DP sink and playback verified; automatic udev setup needs a future boot test |
+| Audio | **Pass on device** | UCM HiFi, PipeWire playback/capture and a clearly audible 10-second ALSA tone at 50%; backend S32_LE with Q6 mapping verified; playback also passes with libcamera nodes active |
+| Battery/charging | **Partial** | Real capacity/status/voltage/current/temperature and USB charging; charge-full reads fail and firmware power is implausible, so UPower energy/rate incorrect |
+| Cameras | **Streaming pass; quality partial** | GStreamer received five RGBA frames from each sensor through PipeWire/libcamera; audio still passes; image quality, metadata, and calibration open |
+| qemu-nbd transport | **Pass with RNDIS; fail with NCM** | RNDIS passed 30 direct-I/O reads of 512 MiB over 39 minutes with no NBD/I/O errors; NCM previously stalled while ACM survived |
 | LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
 
 ## Hardware and blockers
@@ -44,8 +44,10 @@ Updated: 2026-11-08.
 - Slot `_a` is marked unbootable; `_b` holds the test initramfs and the backup is verified.
 - Clean boot, firstboot, Dropbear/ACM cleanup, UFW, Hyprland, GPU, and touch pass without the earlier manual repairs.
 - ACM/kmsg disproved the initial S32-crash hypothesis: NCM repeatedly stalled NBD requests while the kernel and ACM stayed alive. RNDIS completed the same rootfs boot and audio tests without stalls. The final S32 mask and Q6 mapping patches produced a clearly audible 10-second tone at 50%.
-- WirePlumber video enumeration queues but never completes the audio stream's node event. `omamobile-device-dubai` 0.1.0-3 disables `hardware.video-capture`; this does not disable kernel camera drivers or direct libcamera access.
-- Modem, suspend, sensors, Bluetooth pairing/A2DP, and camera capture are not qualified.
+- The V4L2 monitor receives `ENOMEM` opening `/dev/video0` and leaves the shared WirePlumber event queue stuck before the libcamera hooks. `omamobile-device-dubai` 0.1.0-5 disables only `monitor.v4l2`; libcamera creates both video sources and PipeWire audio still passes.
+- GStreamer/PipeWire camera capture passes on both sensors with normal autolinking and native RGBA caps. The earlier no-link capture used `autoconnect=false`, which intentionally excludes the stream from WirePlumber linking.
+- Bluetooth starts as an unconfigured controller because it lacks a public address. The device package derives a stable locally administered address from `machine-id`; manual configuration, LE discovery, PC pairing, A2DP and cleanup passed. Automatic udev activation remains unverified until a reboot.
+- Modem, suspend, sensors, and camera image quality/calibration are not qualified.
 - Proprietary firmware is not published; the NBD artifacts and captures are local only.
 
 ## Risks
@@ -54,4 +56,4 @@ Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualificat
 
 ## Next step
 
-Preserve the verified S32/Q6 speaker patches and use RNDIS for longer NBD stability tests. Reconnect Wi-Fi on the fresh boot, then investigate the WirePlumber camera event stall before re-enabling video enumeration. Bluetooth, suspend, and modem tests remain separate gates.
+Verify automatic Bluetooth address setup and the offline-built S5KJN1 selection fix on a future authorized boot. Improve camera calibration and investigate the invalid battery charge/power properties; suspend and modem remain later gates.

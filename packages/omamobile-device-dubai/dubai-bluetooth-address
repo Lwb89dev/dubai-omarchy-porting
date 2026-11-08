@@ -1,0 +1,16 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+
+hci=${1:?usage: dubai-bluetooth-address hciN}
+[[ $hci =~ ^hci[0-9]+$ ]] || { echo "Invalid Bluetooth interface: $hci" >&2; exit 2; }
+index=${hci#hci}
+info=$(btmgmt --index "$index" extinfo)
+[[ $info == *"missing options: public-address"* ]] || exit 0
+
+machine_id=$(cat /etc/machine-id)
+[[ $machine_id =~ ^[0-9a-f]{32}$ ]] || { echo "Invalid machine-id" >&2; exit 1; }
+hash=$(printf '%s-BT' "$machine_id" | sha256sum)
+hex=0200${hash%% *}
+address=${hex:0:2}:${hex:2:2}:${hex:4:2}:${hex:6:2}:${hex:8:2}:${hex:10:2}
+btmgmt --index "$index" public-addr "$address"
