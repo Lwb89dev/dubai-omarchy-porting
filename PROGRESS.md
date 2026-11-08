@@ -178,3 +178,45 @@
 - The first S32 Arch attempt produced a black/unresponsive session and no SSH. After an authorized diagnostic reboot, the same kernel is healthy in rescue; pstore has no previous-boot records. The S32 audio path remains untested.
 - Preserved the temporary NBD snapshot as a checked qcow2 overlay and documented an explicit persistent overlay plus `--shared=2`; this avoids losing work and rejects no new boot because of a stale client. The initial ext4 check found an unreplayed journal and dirty counters from the stopped session; repaired only a raw copy, replayed the journal, and obtained a clean `e2fsck -fn`. Created `work/rootfs-dubai-s32-ready.qcow2` on that clean backing image.
 - Both GCC/S32 Arch attempts were unresponsive. Booting the previous LLVM kernel with GCC modules is invalid: the kernel reports a struct-module size mismatch. Downloaded and extracted Ubuntu `lld-18` into `work/toolchain-lld` without sudo or host installation; the matching LLVM/S32 build then completed with all SHA-256 checks. Started a coherent Arch/Omarchy rootfs rebuild using that exact `KERNEL_OUT`.
+
+## 2026-11-08 — Rebuilt LLVM/S32 rootfs ready for the clean-boot gate
+
+- Confirmed that the coherent LLVM/S32 rootfs build completed successfully: its checksum and upstream smoke test pass, and the manifest includes `omamobile-device-dubai` 0.1.0-3 and `omamobile-ucm-dubai` 0.1.0-2 with the matching S32 module tarball.
+- Verified that `work/rootfs-dubai-llvm-s32.img` contains the private firstboot configuration, public SSH key, and all required GPU, ADSP, WPSS, Wi-Fi, and audio firmware. Read-only `e2fsck -fn` passes.
+- `work/rootfs-dubai-llvm-s32.qcow2` uses that raw image as its backing file and passes `qemu-img check`; no qemu-nbd server is currently running.
+- Repeated `tests/static.sh`, the LLVM/S32 kernel and initramfs verification, and every kernel SHA-256 check successfully. Both panel DTBs and all 636 module entries were verified.
+- No Motorola was detected through adb or fastboot. No reboot, boot command, flash, or other device operation was performed; the clean NBD boot remains the next authorized hardware gate.
+
+## 2026-11-08 — S32 black-screen test and toolchain isolation
+
+- The first `fastboot boot` attempt was rejected with `Not Found` because no slot was selected and `_b` had zero retries. With owner authorization, restored only slot B selection with `fastboot --set-active=b`; no partition content was flashed.
+- The LLVM/S32 NBD image then booted, but the rescue USB gadget disconnected from the host about 26 seconds after enumeration and the screen stayed black. The subsequent forced recovery returned to fastboot with slot B selected and seven retries.
+- Stopped qemu-nbd and preserved the post-boot state. `qemu-img check` passes; a read-only conversion shows the expected dirty ext4 counters after the forced stop. Private journals and host logs remain outside Git.
+- Booted the known-good non-S32 diagnostic image: SSH, the CSOT model, and kernel 7.2.9-dubai+ work normally. No previous-boot records exist in pstore, so the S32 failure has no captured panic.
+- Compared the final configurations: the earlier S32 build outside the standard container unexpectedly lacked pahole/BTF and detected host Rust, producing config differences beyond the speaker patch. Started a new S32 build in the standard container with the same Clang 18, LLD 18, and pahole 1.25 as the working LLVM build. No audio result is claimed yet.
+
+## 2026-11-08 — Controlled S32 comparison fails; return to stable kernel
+
+- The standard-container S32 kernel, both DTBs, all 636 modules, the NBD initramfs, and the CSOT boot image built and passed offline verification. Its `config.final` is byte-identical to the stable non-S32 control.
+- The coherent 2026.11.08 S32 rootfs passed checksum and smoke tests and was provisioned into a fresh raw image and qcow2 overlay with all private firmware.
+- An attempted reboot through SSH blocked before reaching `fastboot boot`; that unintended run of the existing boot_b content was discarded as evidence. Stopped the stuck host task and did not count it as a test of the new image.
+- Explicitly booted `out/images-llvm-s32-docker/boot-dubai-csot-UNTESTED.img` with SHA-256 `8525fe218ab789b53b74a60c4909d4051cca4fb5414de9b2fef4ad27ccde8539`. The verified rescue gadget again disconnected after 27 seconds, before SSH access. No panic was captured.
+- The controlled S32 variant therefore remains unsuitable for boot testing. Started a current non-S32 rootfs rebuild so clean-boot and remaining hardware qualification can continue independently of the speaker experiment.
+
+## 2026-11-08 — kmsg identifies NCM stalls; RNDIS clean boot passes
+
+- Added an optional `CMDLINE` override to the offline boot-image builder and selectable `USB_NET_FUNCTION=ncm|rndis` support to the initramfs, keeping NCM as the default for compatibility. Static checks and artifact verification pass.
+- A pre-authenticated ACM reader started `cat /proc/kmsg` before `switch_root` and kept streaming under Arch. It showed NBD read/write requests becoming stuck while ACM and the kernel stayed alive; qemu-nbd was idle and the host USB link had no errors. This disproved the earlier working assumption that the S32 patch itself caused a hard crash.
+- Booted the same stable kernel and current rootfs with RNDIS instead of NCM, using a fresh qcow2 overlay. OpenSSH reached systemd with `/` on `/dev/nbd0`; `omamobile-device-dubai` 0.1.0-3 and `omamobile-ucm-dubai` 0.1.0-2 were already installed.
+- Firstboot completed and removed its configuration, UFW became active with SSH allowed on usb0, and only the known Plymouth and console-less systemd-firstboot units remained failed. Every UFS LUN stayed read-only.
+- Hyprland/Quickshell started, Goodix input was detected, and GBM EGL confirmed Freedreno with OpenGL ES 3.2. No NBD stuck requests or I/O errors appeared after firstboot.
+- Package-only PipeWire playback completed at 10% and a five-second microphone recording at 20% produced a valid non-empty WAV. Speaker audibility still requires the owner's report. Wi-Fi was disconnected in this fresh boot and was not reconfigured; its earlier hardware test remains valid.
+
+## 2026-11-08 — Audible S32 speaker playback fixed and verified
+
+- Runtime capture during playback showed active routing and both AW88261 DACs, but a non-S32 backend. Android `mixer_paths.xml` explicitly selects S32_LE for SEN_MI2S_RX.
+- Booted S32 through RNDIS to remove the NCM confounder. Initial testing showed AW88261 `start failure (-1)` from the SYSST/PLL check and inconsistent S16/S24 negotiation.
+- Temporary instrumentation confirmed that the dubai helper was selected, but `snd_mask_set_format()` only adds a bit and did not remove S16/S24 alternatives. Updated patch 0001 to clear the format mask before selecting S32_LE and removed the instrumentation from the final code.
+- Forcing S32 initially exposed `-EINVAL` in the DSP path. Added patch 0002 to map S32_LE to 32 bits in Q6ASM and Q6Routing while allowing the frontend to remain S16/S24 for ADM conversion.
+- The final S32/Q6 set booted through RNDIS and completed firstboot. During a 10-second 440 Hz ALSA tone at 50%, MultiMedia1 used S16_LE and Senary MI2S used **S32_LE**; playback completed and the owner clearly heard the tone.
+- Saved both final patches, verified that they apply to the pinned source, ran checkpatch on the complete kernel diff with zero errors/warnings, and repeated static checks. This is a real speaker hardware result, not only a completed software stream.

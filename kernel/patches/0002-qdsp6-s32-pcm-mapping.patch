@@ -1,0 +1,35 @@
+Subject: [PATCH] ASoC: qdsp6: map S32_LE in PCM hardware parameters
+
+The Motorola dubai speaker backend uses S32_LE while its frontend can
+remain S16_LE or S24_LE. Set the Q6ASM and routing bits_per_sample fields
+for S32_LE explicitly; otherwise the DSP receives an unset or stale width
+and rejects playback instead of converting the frontend to the backend.
+---
+diff --git a/sound/soc/qcom/qdsp6/q6asm-dai.c b/sound/soc/qcom/qdsp6/q6asm-dai.c
+index 4f09fdd40..b8ac12c38 100644
+--- a/sound/soc/qcom/qdsp6/q6asm-dai.c
++++ b/sound/soc/qcom/qdsp6/q6asm-dai.c
+@@ -509,6 +509,9 @@ static int q6asm_dai_hw_params(struct snd_soc_component *component,
+ 	case SNDRV_PCM_FORMAT_S24_LE:
+ 		prtd->bits_per_sample = 24;
+ 		break;
++	case SNDRV_PCM_FORMAT_S32_LE:
++		prtd->bits_per_sample = 32;
++		break;
+ 	}
+ 
+ 	return 0;
+diff --git a/sound/soc/qcom/qdsp6/q6routing.c b/sound/soc/qcom/qdsp6/q6routing.c
+index 55119cc33..3dd2c8331 100644
+--- a/sound/soc/qcom/qdsp6/q6routing.c
++++ b/sound/soc/qcom/qdsp6/q6routing.c
+@@ -1094,6 +1094,9 @@ static int routing_hw_params(struct snd_soc_component *component,
+ 	case SNDRV_PCM_FORMAT_S24_LE:
+ 			session->bits_per_sample = 24;
+ 		break;
++	case SNDRV_PCM_FORMAT_S32_LE:
++			session->bits_per_sample = 32;
++		break;
+ 	default:
+ 		break;
+ 	}

@@ -11,10 +11,10 @@ Legend: **S** = present in the sources; **B** = built; **R** = detected on the p
 | Tianma display | Tianma DTS and a distinct sequence | DTS and panel module | This is not the panel on this unit; NV |
 | Touch | Goodix GT9916 on SPI13, Berlin core/SPI | Modules configured | **T:** Goodix detected by Hyprland; coordinates, pressure, release, and multitouch slots verified with `evtest` |
 | UFS storage | Host/PHY okay, supplies and reset | Built-in driver | **R/T guard:** six Micron LUNs detected; `blockdev --getro` = 1 on all of them; no Android mount |
-| USB-C | Qualcomm DWC3, USB2 HS, PMIC GLINK, FSA4480 | DWC3/NCM/ACM configured | **T gadget:** NCM, ACM, ping, and SSH verified; OTG/charging not tested |
+| USB-C | Qualcomm DWC3, USB2 HS, PMIC GLINK, FSA4480 | DWC3/NCM/RNDIS/ACM configured | **T/P gadget:** ACM and SSH work; NCM reproducibly stalls under NBD traffic while ACM survives, RNDIS completed clean firstboot/audio without NBD stalls; OTG not tested |
 | WCN6750 Wi-Fi | Node okay, ath11k AHB, Motorola_dubai calibration | ath11k=m | **T:** WPSS/ath11k active; real scan, WPA2 DHCP/DNS, Internet and HTTPS verified; board-data warning remains |
 | WCN6750 Bluetooth | UART7, PMU, hci_qca | Modules configured | **R:** hci0 detected and firmware loaded; pairing/A2DP not tested |
-| Audio | WCD9375, two AW88261, QDSP6, ADSP, UCM fork | UCM 0.1.0-2 installed | **P:** PipeWire playback/capture and DAPM start pass, but no audible speaker output at 10–50%; S32 clock/format test pending; video enumeration disabled |
+| Audio | WCD9375, two AW88261, QDSP6, ADSP, UCM fork | UCM 0.1.0-2 plus two S32 patches | **T:** 10-second 440 Hz tone clearly audible at 50%; backend S32_LE, Q6 mapping and playback verified, PipeWire capture also passes; video enumeration disabled |
 | Battery | `CONFIG_BATTERY_QCOM_BATTMGR=y`, PMIC GLINK | Configured | **T/P:** ADSP enables real capacity/status/temperature and UPower; energy fields/rate are incorrect |
 | Charging | PMIC GLINK/USB-C and thermal in the DTS | Drivers present | **T/P:** USB online and charging reported with plausible V/I; suspend and long-term safety not tested |
 | Sensors | FastRPC/CDSP and mount-matrix rule | FastRPC module | **R/P:** ADSP FastRPC active; CDSP, libssc/hexagonrpcd and sensor service not integrated |

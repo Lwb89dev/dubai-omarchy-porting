@@ -52,7 +52,7 @@ qemu-nbd --format=qcow2 --persistent --shared=2 --aio=threads --cache=none \
   --export-name=omamobile work/rootfs-dubai-overlay.qcow2
 ```
 
-The NBD initramfs loads the client only if `/etc/omamobile-nbd-server` is present. It waits up to 90 seconds for the host network, rejects an NBD device with zero capacity, and on error stays in the diagnostic shell without trying alternate mounts. The server must stay persistent, because a client reboot would otherwise stop it.
+The NBD initramfs loads the client only if `/etc/omamobile-nbd-server` is present. It waits up to 90 seconds for the host network, rejects an NBD device with zero capacity, and on error stays in the diagnostic shell without trying alternate mounts. Build with `USB_NET_FUNCTION=rndis` for current qualification: NCM reproducibly stalled NBD while ACM/kmsg stayed alive, whereas RNDIS passed clean firstboot and audio. The server must stay persistent, because a client reboot would otherwise stop it.
 
 After every enumeration, configure the host address before the retry expires. The interface name changes on every boot; walk from its udev path to the parent USB device and require `serial=dubai-rescue`. `PRODUCT=1d6b/104/*` is a generic gadget ID and is not enough when another Linux device is also connected. Do not use the previous name or the USB interface list alone. If another gadget shares `172.16.42.0/24`, add the source-specific route documented in `docs/BUILD.md` and use `BindAddress=172.16.42.2` for SSH; otherwise replies can use the wrong interface.
 

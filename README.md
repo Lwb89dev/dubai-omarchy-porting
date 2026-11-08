@@ -3,12 +3,12 @@
 
 Native AArch64 port based on mainline Linux, the existing Motorola Linux port, Arch Linux ARM, and the Omarchy Mobile shell. It does not use Android as a runtime, and it does not use proot, chroot, or Termux.
 
-**Current state: Alpha 0 and Alpha 1 reached on the owner's CSOT device, with the Alpha 2 software paths exercised.** Mainline Linux, Arch Linux ARM, systemd, pacman, SSH, accelerated Hyprland/Omarchy Mobile, touch, Wi-Fi, battery telemetry, and PipeWire playback/capture have run through the temporary NBD setup. Camera integration, long-term stability, and a clean boot from the rebuilt rootfs remain open; no daily-driver or general flashing compatibility is claimed.
+**Current state: Alpha 0, Alpha 1, and Alpha 2 reached on the owner's CSOT device through the temporary RNDIS/NBD setup.** Mainline Linux, Arch Linux ARM, systemd, pacman, SSH, accelerated Hyprland/Omarchy Mobile, touch, Wi-Fi, battery telemetry, PipeWire capture, and audible speaker playback have run on hardware. Camera integration, modem, power management, and long-term stability remain open; no daily-driver or general flashing compatibility is claimed.
 
 ## Goals and limits
 
 - Kernel `7.2.9-sc7280` pinned in `sources.lock`; device trees specific to CSOT and Tianma.
-- First initramfs entirely in RAM: shell, logs, USB NCM/ACM, and Dropbear; every SCSI/UFS disk is read-only.
+- First initramfs entirely in RAM: shell, logs, selectable USB NCM/RNDIS plus ACM, and Dropbear; every SCSI/UFS disk is read-only. RNDIS is used for NBD qualification because NCM stalls under rootfs traffic.
 - Arch Linux ARM rootfs built with the Omarchy Mobile container/QEMU infrastructure.
 - The shell and hardware-independent packages are reused; no Pixel/Tensor drivers or modem stack.
 

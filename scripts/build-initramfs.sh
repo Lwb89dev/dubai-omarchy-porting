@@ -10,6 +10,7 @@ ALPINE_VERSION=3.24.2
 ALPINE_SHA256=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
 TARBALL=$DOWNLOADS/alpine-minirootfs-$ALPINE_VERSION-aarch64.tar.gz
 SSH_PUBLIC_KEY=${SSH_PUBLIC_KEY:-}
+USB_NET_FUNCTION=${USB_NET_FUNCTION:-ncm}
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-1781088000}
 
 mkdir -p "$OUT/logs" "$DOWNLOADS"
@@ -68,6 +69,10 @@ fi
 if [[ -n ${NBD_SERVER:-} ]]; then
     printf '%s\n' "$NBD_SERVER" >"$WORK/rootfs/etc/omamobile-nbd-server"
 fi
+case "$USB_NET_FUNCTION" in
+    ncm|rndis) printf '%s\n' "$USB_NET_FUNCTION" >"$WORK/rootfs/etc/omamobile-usb-net-function" ;;
+    *) echo "USB_NET_FUNCTION must be ncm or rndis" >&2; exit 2 ;;
+esac
 
 [[ -x $WORK/rootfs/bin/busybox && -x $WORK/rootfs/usr/sbin/dropbear ]] || {
     echo "Incomplete initramfs root" >&2; exit 1;

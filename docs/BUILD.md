@@ -28,6 +28,8 @@ KERNEL_OUT="$PWD/out/kernel-llvm" IMAGE_OUT="$PWD/out/images-llvm" \
   PANEL=csot scripts/build-images.sh
 ```
 
+Run patched kernel variants in the same container and with the same `LLVM` setting as their control build. Building directly on the host can silently change the resulting config through different pahole, BTF, Rust, or linker detection; compare `config.final` before treating the test as an isolated patch comparison.
+
 To enable SSH in the diagnostic image, pass **only a public key**, explicitly:
 
 ```sh
@@ -67,13 +69,13 @@ The image, checksum, and manifest are published in `work/omarchy-dubai/out/dubai
 
 ## Hardware initramfs and NBD rootfs
 
-The initramfs build accepts `KERNEL_OUT` to include the modules, `FIRMWARE_DIR` for SQE/GMU from linux-firmware, `DUBAI_ZAP_FIRMWARE` for the owner's specific zap, and `NBD_SERVER` for the optional remote rootfs. The generic `qcm6490` zap blob is not a compatible substitute. The variant used for dubai is:
+The initramfs build accepts `KERNEL_OUT` to include the modules, `FIRMWARE_DIR` for SQE/GMU from linux-firmware, `DUBAI_ZAP_FIRMWARE` for the owner's specific zap, and `NBD_SERVER` for the optional remote rootfs. `USB_NET_FUNCTION` selects `ncm` (default) or `rndis`; RNDIS is used for current NBD qualification after NCM repeatedly stalled under rootfs traffic while ACM stayed alive. The generic `qcm6490` zap blob is not a compatible substitute. The variant used for dubai is:
 
 ```sh
 INITRAMFS_OUT="$PWD/out/initramfs-nbd" KERNEL_OUT="$PWD/out/kernel-llvm" \
   FIRMWARE_DIR=/usr/lib/firmware DUBAI_ZAP_FIRMWARE=<private-dubai-a660_zap.mbn> \
   SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
-  NBD_SERVER=172.16.42.2 scripts/build-initramfs.sh
+  NBD_SERVER=172.16.42.2 USB_NET_FUNCTION=rndis scripts/build-initramfs.sh
 KERNEL_OUT="$PWD/out/kernel-llvm" \
   INITRAMFS="$PWD/out/initramfs-nbd/initramfs-dubai.cpio.gz" \
   IMAGE_OUT="$PWD/out/images-nbd" PANEL=csot scripts/build-images.sh

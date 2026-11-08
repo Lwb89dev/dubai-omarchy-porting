@@ -62,18 +62,23 @@ fi
 collect_diagnostics
 say "Linux $release on $(cat /proc/device-tree/model 2>/dev/null)"
 
-# CDC NCM plus an ACM shell. No storage gadget is ever created.
+# CDC network plus an ACM shell. No storage gadget is ever created.
 gadget=/sys/kernel/config/usb_gadget/g1
 setup_usb() {
+    local net_function=ncm
+    if [ -s /etc/omamobile-usb-net-function ]; then
+        read -r net_function </etc/omamobile-usb-net-function
+    fi
+    case "$net_function" in ncm|rndis) ;; *) say "invalid USB network function"; return 1 ;; esac
     mkdir -p "$gadget/strings/0x409" "$gadget/configs/c.1/strings/0x409"
     echo 0x1d6b >"$gadget/idVendor"
     echo 0x0104 >"$gadget/idProduct"
     echo "Omarchy Mobile" >"$gadget/strings/0x409/manufacturer"
     echo "Motorola Edge 30 diagnostic" >"$gadget/strings/0x409/product"
     echo "dubai-rescue" >"$gadget/strings/0x409/serialnumber"
-    echo "NCM + ACM" >"$gadget/configs/c.1/strings/0x409/configuration"
-    mkdir -p "$gadget/functions/ncm.usb0" "$gadget/functions/acm.GS0"
-    ln -s "$gadget/functions/ncm.usb0" "$gadget/configs/c.1/"
+    echo "$net_function + ACM" >"$gadget/configs/c.1/strings/0x409/configuration"
+    mkdir -p "$gadget/functions/$net_function.usb0" "$gadget/functions/acm.GS0"
+    ln -s "$gadget/functions/$net_function.usb0" "$gadget/configs/c.1/"
     ln -s "$gadget/functions/acm.GS0" "$gadget/configs/c.1/"
 
     local udc attempt

@@ -7,6 +7,7 @@ KERNEL_OUT=${KERNEL_OUT:-$ROOT/out/kernel}
 INITRAMFS=${INITRAMFS:-$ROOT/out/initramfs/initramfs-dubai.cpio.gz}
 OUT=${IMAGE_OUT:-$ROOT/out/images}
 PANEL=${PANEL:-}
+CMDLINE=${CMDLINE:-earlycon console=ttyMSM0,115200n8 console=tty0 panic=10}
 MKBOOTIMG=${MKBOOTIMG:-$ROOT/work/toolchain/mkbootimg/mkbootimg.py}
 
 [[ $PANEL == csot || $PANEL == tianma ]] || {
@@ -27,7 +28,7 @@ python3 "$MKBOOTIMG" \
     --kernel_offset 0x00008000 --ramdisk_offset 0x01000000 \
     --tags_offset 0x00000100 --dtb_offset 0x01f00000 \
     --kernel "$kernel" --ramdisk "$INITRAMFS" --dtb "$dtb" \
-    --cmdline "earlycon console=ttyMSM0,115200n8 console=tty0 panic=10" \
+    --cmdline "$CMDLINE" \
     --os_patch_level 2026-06-26 --output "$image"
 printf '%s\n' \
     "UNTESTED AND NOT APPROVED FOR FLASH" \
