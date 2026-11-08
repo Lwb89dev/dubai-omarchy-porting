@@ -11,10 +11,10 @@
 | M5 Display/GPU/touch | Stable KMS, Freedreno, libinput | **Substantially verified**; 1080×2400 modes, Freedreno GLES 3.2, Hyprland and Goodix multitouch pass |
 | M6 Connectivity | ath11k/WCN6750, BlueZ, USB roles | **Wi-Fi, RNDIS gadget, Bluetooth pairing and A2DP pass**; automatic Bluetooth setup needs a boot test, NCM stalls under NBD load and USB host is open |
 | M7 Audio | QDSP6, dubai UCM, PipeWire, safe low-volume tests | **Completed on CSOT hardware**; S32 backend and Q6 mapping verified by an audible 10-second ALSA tone, PipeWire playback and mic capture also pass with libcamera nodes active |
-| M8 Power | Battery/charging, runtime PM, progressive s2idle and resume | **Partial**; real battery/charger telemetry works, but unreadable charge-full and implausible firmware power break UPower energy fields; suspend not tested |
+| M8 Power | Battery/charging, runtime PM, progressive s2idle and resume | **Partial**; charge-level and SM7325 power-property fixes are built offline but not booted; suspend not tested |
 | M9 Modem | remoteproc/QRTR/QMI, data, SMS, calls, IMS kept separate | Not qualified; no Pixel stack, no SIM/data/SMS/call test |
 | M10 Omarchy | Device package and the real shell, portrait/landscape, 6 GiB performance | Real Hyprland/Quickshell shell starts and touch works; complete UX/performance qualification open |
-| M11 Secondary | Sensors, haptics, fingerprint, GNSS, cameras, NFC | Five PipeWire/libcamera RGBA frames captured from each sensor through GStreamer; image quality, metadata and calibration open |
+| M11 Secondary | Sensors, haptics, fingerprint, GNSS, cameras, NFC | PipeWire/libcamera streaming and both sensor gain helpers pass; image quality, metadata and calibration open |
 
 ## Release milestones
 
@@ -27,6 +27,6 @@
 
 1. Keep RNDIS for NBD qualification; 30 direct-I/O reads of 512 MiB over 39 minutes passed without NBD/I/O errors, while NCM previously stalled under rootfs traffic.
 2. Preserve the verified S32/Q6 speaker patches and test normal PipeWire playback at conservative volume after future rebuilds.
-3. Test `0003-s5kjn1-selection.patch` at the next authorized boot, then add verified camera metadata/calibration; PipeWire streaming passes but image quality and the square active-area fallback remain open on the running kernel.
+3. Test `0003-s5kjn1-selection.patch` and the `0004`/`0005` battery telemetry fixes at the next authorized boot; the complete CSOT image is ready offline, while camera calibration remains open.
 4. Verify the packaged Bluetooth address helper at the next authorized boot; pairing and A2DP already pass, while modem, suspend and persistent installation remain later gates.
 5. Keep proprietary firmware and private captures outside Git and preserve the verified boot/dtbo rollback.

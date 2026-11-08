@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: MIT
+pkgbase=libcamera
+pkgname=(libcamera libcamera-ipa)
+pkgver=0.7.2
+pkgrel=4.24
+pkgdesc="A complex camera support library for Linux, with dubai sensor helpers"
+arch=(aarch64)
+url="https://libcamera.org/"
+license=(LGPL-2.1-or-later)
+makedepends=(cmake git libdrm libelf libglvnd libpisp libunwind libyaml libyuv meson python-jinja python-ply python-yaml systemd)
+source=("git+https://git.libcamera.org/libcamera/libcamera.git#tag=v$pkgver"
+        dubai-sensor-helpers.patch)
+sha256sums=(SKIP 7d516c43b1bf773f5cd4ccb9480b903470f77a8ea1d2cad447485b02c6c25935)
+
+_pick() {
+    local p="$1" f d
+    shift
+    for f; do
+        d="$srcdir/$p/${f#$pkgdir/}"
+        mkdir -p "$(dirname "$d")"
+        mv "$f" "$d"
+        rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+    done
+}
+
+prepare() {
+    cd "$pkgbase"
+    patch -Np1 <../dubai-sensor-helpers.patch
+    printf '%s\n' "$pkgver" >.tarball-version
+}
+
+build() {
+    arch-meson "$pkgbase" build \
+        -D apps-output-dng=disabled \
+        -D ipas=simple \
+        -D pipelines=simple \
+        -D cam=disabled \
+        -D documentation=disabled \
+        -D gstreamer=disabled \
+        -D lc-compliance=disabled \
+        -D pycamera=disabled \
+        -D qcam=disabled \
+        -D rpi-awb-nn=disabled \
+        -D test=false \
+        -D tracing=disabled \
+        -D v4l2=enabled \
+        -D werror=false
+    meson compile -C build
+}
+
+package_libcamera() {
+    license=(Apache-2.0 CC0-1.0 'GPL-2.0-only WITH Linux-syscall-note'
+             GPL-2.0-or-later LGPL-2.1-or-later
+             'GPL-2.0-or-later WITH Linux-syscall-note OR BSD-3-Clause'
+             'GPL-2.0-or-later WITH Linux-syscall-note OR MIT')
+    depends=(glibc gnutls libcamera-ipa libelf libgcc libglvnd libpisp libstdc++
+             libunwind libyaml libyuv sh systemd-libs libudev.so)
+    provides=(libcamera.so libcamera-base.so)
+
+    meson install -C build --destdir "$pkgdir"
+    install -Dm644 "$pkgbase/LICENSES/BSD-3-Clause.txt" \
+        "$pkgdir/usr/share/licenses/$pkgname/BSD-3-Clause.txt"
+    install -Dm644 "$pkgbase/LICENSES/Linux-syscall-note.txt" \
+        "$pkgdir/usr/share/licenses/$pkgname/Linux-syscall-note.txt"
+    install -Dm644 "$pkgbase/LICENSES/MIT.txt" \
+        "$pkgdir/usr/share/licenses/$pkgname/MIT.txt"
+    (
+        cd "$pkgdir"
+        _pick libcamera-ipa usr/lib/libcamera/
+        _pick libcamera-tools usr/bin/libcamera-bug-report
+    )
+}
+
+package_libcamera-ipa() {
+    pkgdesc+=" - signed IPA"
+    license=(BSD-2-Clause CC-BY-SA-4.0 CC0-1.0 GPL-2.0-or-later LGPL-2.1-or-later)
+    depends=(glibc libcamera libcamera.so libcamera-base.so libgcc libstdc++)
+    options=(!strip)
+
+    strip "$pkgname"/usr/lib/libcamera/*{.so,proxy}
+    for lib in "$pkgname"/usr/lib/libcamera/*.so; do
+        "$pkgbase/src/ipa/ipa-sign.sh" \
+            "$(find build -type f -iname '*ipa-priv-key.pem')" "$lib" "$lib.sign"
+    done
+    mv "$pkgname"/* "$pkgdir"
+    install -Dm644 "$pkgbase/LICENSES/BSD-2-Clause.txt" \
+        "$pkgdir/usr/share/licenses/$pkgname/BSD-2-Clause.txt"
+}

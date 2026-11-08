@@ -1,0 +1,66 @@
+Subject: [PATCH] power: supply: qcom_battmgr: report charge levels on SM8350-class firmware
+
+SM8350-class firmware does not respond to BATTMGR_BAT_INFO, leaving the
+zero-initialized mWh unit in place and rejecting all CHARGE_FULL reads.
+Select mAh explicitly for this firmware class.
+
+BATT_CHG_COUNTER contains the remaining charge in uAh on this firmware,
+not a monotonic counter. Expose it as CHARGE_NOW as well, allowing UPower
+to derive the current and full energy levels.
+
+Based on the two-patch series by Jan-Michael Brummer:
+https://lore.landau.one/lkml/73e4b46b-6a26-4124-920c-7638b449fc1c@oss.qualcomm.com/t/
+---
+diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
+--- a/drivers/power/supply/qcom_battmgr.c
++++ b/drivers/power/supply/qcom_battmgr.c
+@@ -441,6 +441,7 @@ static const u8 sm8350_bat_prop_map[] = {
+ 	[POWER_SUPPLY_PROP_CYCLE_COUNT] = BATT_CYCLE_COUNT,
+ 	[POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN] =  BATT_CHG_FULL_DESIGN,
+ 	[POWER_SUPPLY_PROP_CHARGE_FULL] = BATT_CHG_FULL,
++	[POWER_SUPPLY_PROP_CHARGE_NOW] = BATT_CHG_COUNTER,
+ 	[POWER_SUPPLY_PROP_MODEL_NAME] = BATT_MODEL_NAME,
+ 	[POWER_SUPPLY_PROP_TIME_TO_FULL_AVG] = BATT_TTF_AVG,
+ 	[POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG] = BATT_TTE_AVG,
+@@ -878,6 +879,7 @@ static const enum power_supply_property sm8350_bat_props[] = {
+ 	POWER_SUPPLY_PROP_CYCLE_COUNT,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL,
++	POWER_SUPPLY_PROP_CHARGE_NOW,
+ 	POWER_SUPPLY_PROP_MODEL_NAME,
+ 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+ 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
+@@ -910,6 +912,7 @@ static const enum power_supply_property sm8550_bat_props[] = {
+ 	POWER_SUPPLY_PROP_CYCLE_COUNT,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL,
++	POWER_SUPPLY_PROP_CHARGE_NOW,
+ 	POWER_SUPPLY_PROP_MODEL_NAME,
+ 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+ 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
+@@ -1442,7 +1445,10 @@ static void qcom_battmgr_sm8350_callback(struct qcom_battmgr *battmgr,
+ 			battmgr->info.technology = le32_to_cpu(resp->intval.value);
+ 			break;
+ 		case BATT_CHG_COUNTER:
+-			battmgr->info.charge_count = le32_to_cpu(resp->intval.value);
++			val = le32_to_cpu(resp->intval.value);
++			battmgr->info.charge_count = val;
++			/* the firmware reports the remaining charge here */
++			battmgr->status.capacity = val;
+ 			break;
+ 		case BATT_CYCLE_COUNT:
+ 			battmgr->info.cycle_count = le32_to_cpu(resp->intval.value);
+@@ -1690,5 +1696,13 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
+ 					     "failed to register wireless charing power supply\n");
+ 	} else {
++		/*
++		 * The SM8350-class firmware has no BATTMGR_BAT_INFO request, so
++		 * @unit is never populated from the firmware. It reports charge
++		 * domain values, so set it statically here - otherwise the
++		 * CHARGE_* properties are rejected with -ENODATA.
++		 */
++		battmgr->unit = QCOM_BATTMGR_UNIT_mAh;
++
+ 		if (battmgr->variant == QCOM_BATTMGR_SM8550)
+ 			psy_desc = &sm8550_bat_psy_desc;
+ 		else

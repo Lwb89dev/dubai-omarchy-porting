@@ -1,0 +1,57 @@
+Subject: [PATCH] power: supply: qcom_battmgr: hide invalid power_now on SM7325
+
+The SM7325 firmware reports roughly 54 W through BATT_POWER_NOW while
+the measured battery voltage and current amount to roughly 1 W. Similar
+unscaled values have been observed on QCM6490. Do not advertise this
+property on SM7325; retain the valid voltage and current properties so
+userspace can derive the instantaneous power instead.
+---
+diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
+--- a/drivers/power/supply/qcom_battmgr.c
++++ b/drivers/power/supply/qcom_battmgr.c
+@@ -23,6 +23,7 @@
+ enum qcom_battmgr_variant {
+ 	QCOM_BATTMGR_SC8280XP,
++	QCOM_BATTMGR_SM7325,
+ 	QCOM_BATTMGR_SM8350,
+ 	QCOM_BATTMGR_SM8550,
+ 	QCOM_BATTMGR_X1E80100,
+ };
+@@ -892,6 +893,18 @@ static const struct power_supply_desc sm8350_bat_psy_desc = {
+ 	.get_property = qcom_battmgr_bat_get_property,
+ };
+ 
++/*
++ * BATT_POWER_NOW is not an instantaneous measurement on SM7325 firmware.
++ * POWER_SUPPLY_PROP_POWER_NOW is the final entry in sm8350_bat_props.
++ */
++static const struct power_supply_desc sm7325_bat_psy_desc = {
++	.name = "qcom-battmgr-bat",
++	.type = POWER_SUPPLY_TYPE_BATTERY,
++	.properties = sm8350_bat_props,
++	.num_properties = ARRAY_SIZE(sm8350_bat_props) - 1,
++	.get_property = qcom_battmgr_bat_get_property,
++};
++
+ static const enum power_supply_property sm8550_bat_props[] = {
+ 	POWER_SUPPLY_PROP_STATUS,
+ 	POWER_SUPPLY_PROP_HEALTH,
+@@ -1622,6 +1632,7 @@ static const struct of_device_id qcom_battmgr_of_variants[] = {
+ 	{ .compatible = "qcom,sc8180x-pmic-glink", .data = (void *)QCOM_BATTMGR_SC8280XP },
+ 	{ .compatible = "qcom,sc8280xp-pmic-glink", .data = (void *)QCOM_BATTMGR_SC8280XP },
++	{ .compatible = "qcom,sm7325-pmic-glink", .data = (void *)QCOM_BATTMGR_SM7325 },
+ 	{ .compatible = "qcom,sm8550-pmic-glink", .data = (void *)QCOM_BATTMGR_SM8550 },
+ 	{ .compatible = "qcom,x1e80100-pmic-glink", .data = (void *)QCOM_BATTMGR_X1E80100 },
+ 	/* Unmatched devices falls back to QCOM_BATTMGR_SM8350 */
+ 	{}
+@@ -1704,7 +1715,9 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
+ 		 */
+ 		battmgr->unit = QCOM_BATTMGR_UNIT_mAh;
+ 
+-		if (battmgr->variant == QCOM_BATTMGR_SM8550)
++		if (battmgr->variant == QCOM_BATTMGR_SM7325)
++			psy_desc = &sm7325_bat_psy_desc;
++		else if (battmgr->variant == QCOM_BATTMGR_SM8550)
+ 			psy_desc = &sm8550_bat_psy_desc;
+ 		else
+ 			psy_desc = &sm8350_bat_psy_desc;

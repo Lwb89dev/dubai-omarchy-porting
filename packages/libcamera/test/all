@@ -1,0 +1,18 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+bash -n PKGBUILD
+grep -q 'pkgrel=4.24' PKGBUILD
+grep -q 'apps-output-dng=disabled' PKGBUILD
+grep -q 'ipas=simple' PKGBUILD
+grep -q 'pipelines=simple' PKGBUILD
+grep -q 'werror=false' PKGBUILD
+grep -q '_pick libcamera-tools usr/bin/libcamera-bug-report' PKGBUILD
+grep -q 'REGISTER_CAMERA_SENSOR_HELPER("gc02m1b"' dubai-sensor-helpers.patch
+grep -q 'AnalogueGainLinear{ 1, 0, 0, 1024 }' dubai-sensor-helpers.patch
+grep -q 'REGISTER_CAMERA_SENSOR_HELPER("s5kjn1"' dubai-sensor-helpers.patch
+grep -q 'AnalogueGainLinear{ 1, 0, 0, 1 }' dubai-sensor-helpers.patch
+sha256sum -c <(sed -n 's/^sha256sums=(SKIP \([0-9a-f]\{64\}\))$/\1  dubai-sensor-helpers.patch/p' PKGBUILD)
+echo 'ok libcamera carries only the dubai gain models and simple pipeline/IPA'

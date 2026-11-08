@@ -10,7 +10,7 @@ Updated: 2026-11-08.
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
 - **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`.
 - **Arch Linux ARM:** rootfs `2026.11.08` with stable LLVM modules; SHA-256, smoke test, clean RNDIS/NBD firstboot, pacman, and SSH passed.
-- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. Speaker playback uses the hardware-verified `0001-sm8250-dubai-s32-speaker.patch` and `0002-qdsp6-s32-pcm-mapping.patch`; `0003-s5kjn1-selection.patch` builds offline but is not on the running kernel. RNDIS is the working NBD transport.
+- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. Speaker playback uses the hardware-verified `0001-sm8250-dubai-s32-speaker.patch` and `0002-qdsp6-s32-pcm-mapping.patch`; camera selection and battery telemetry patches `0003`–`0005` build offline but are not on the running kernel. RNDIS is the working NBD transport.
 
 ## Builds and tests
 
@@ -33,8 +33,8 @@ Updated: 2026-11-08.
 | Wi-Fi | **Pass on device** | WPSS/ath11k, WPA2, DHCP, DNS, Internet ping, and HTTPS; calibration fallback warning remains |
 | Bluetooth | **Pass on device** | Local address, LE scan, PC pairing/connection, A2DP sink and playback verified; automatic udev setup needs a future boot test |
 | Audio | **Pass on device** | UCM HiFi, PipeWire playback/capture and a clearly audible 10-second ALSA tone at 50%; backend S32_LE with Q6 mapping verified; playback also passes with libcamera nodes active |
-| Battery/charging | **Partial** | Real capacity/status/voltage/current/temperature and USB charging; charge-full reads fail and firmware power is implausible, so UPower energy/rate incorrect |
-| Cameras | **Streaming pass; quality partial** | GStreamer received five RGBA frames from each sensor through PipeWire/libcamera; audio still passes; image quality, metadata, and calibration open |
+| Battery/charging | **Partial; fixes offline** | Real capacity/status/voltage/current/temperature and USB charging; `0004`/`0005` address the unreadable charge levels and invalid SM7325 power property, but need a future boot test |
+| Cameras | **Streaming and gain helpers pass; quality partial** | libcamera 0.7.2-4.24 recognizes both gain models; five/30-frame captures and audio pass on both sensors; image quality, metadata, and calibration open |
 | qemu-nbd transport | **Pass with RNDIS; fail with NCM** | RNDIS passed 30 direct-I/O reads of 512 MiB over 39 minutes with no NBD/I/O errors; NCM previously stalled while ACM survived |
 | LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
 
@@ -56,4 +56,4 @@ Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualificat
 
 ## Next step
 
-Verify automatic Bluetooth address setup and the offline-built S5KJN1 selection fix on a future authorized boot. Improve camera calibration and investigate the invalid battery charge/power properties; suspend and modem remain later gates.
+On a future authorized boot, use the matching `out/kernel-llvm-telemetry` modules and verify automatic Bluetooth setup plus the S5KJN1 selection and battery telemetry fixes; the CSOT image is in `out/images-telemetry`. Camera calibration, suspend and modem remain later gates.

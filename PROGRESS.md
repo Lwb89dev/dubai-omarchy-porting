@@ -271,3 +271,25 @@
 
 - Completed 30 direct-I/O reads of 512 MiB from `/dev/nbd0`, one per minute plus transfer time, between 14:02 and 14:40 CET. The sequence transferred about 15 GiB over 39 minutes without a failed SSH/read iteration.
 - The final kernel-log filter found no NBD stalls, blocked-request warnings or I/O errors. SSH, Bluetooth, PipeWire and WirePlumber remained active afterwards. This improves confidence in RNDIS/NBD but is not a persistent-installation or suspend qualification.
+
+## 2026-11-08 — Battery charge units isolated; combined test image ready offline
+
+- Confirmed that SM8350-class `qcom_battmgr` leaves `unit` at its zero-initialized mWh value because only the SC8280XP BAT_INFO callback initializes it. The running driver fetches CHARGE_FULL/CHARGE_FULL_DESIGN and then rejects both with `-ENODATA`; BATT_CHG_COUNTER tracks the remaining charge consistently with the reported percentage.
+- Added `0004-qcom-battmgr-sm8350-charge.patch`, based on Jan-Michael Brummer's upstream QCM6490 series, to select mAh and expose CHARGE_NOW. Added `0005-sm7325-battery-power-now.patch` to hide only the invalid SM7325 POWER_NOW property while retaining real voltage/current telemetry. UPower's charge-unit path derives energy and rate from charge, current and voltage instead of POWER_NOW.
+- Both patches apply and pass checkpatch; `qcom_battmgr.o` also builds with `W=1` without warnings. No capacity estimate or arbitrary power scaling was introduced.
+- Built and verified `out/kernel-llvm-telemetry` with all five port patches: Image/Image.gz, both DTBs, unchanged controlled config and 636 module entries pass SHA-256 and offline verification.
+- Built `out/initramfs-telemetry` and the CSOT image in `out/images-telemetry`; all offline checks pass. No reboot, boot, flash, slot change or internal-storage write was performed, so battery fixes remain unverified on hardware.
+
+## 2026-11-08 — One-stop offline build
+
+- Added `scripts/build-all.sh` to run static checks, pinned source fetching, isolated patch application, the LLVM kernel build, DTB validation, RNDIS initramfs, artifact verification and the rootfs build in order. Optional panel/firmware/SSH/NBD settings remain explicit; no device operation is included.
+- Updated README and the build guide with the single command and its options. The rootfs builder now also includes the local libcamera package with the two dubai sensor gain helpers.
+- Two real `BUILD_ROOTFS=0` runs passed, including worktree reuse. The second run accepted only the exact source revision and complete diff recorded by the first; CSOT/Tianma dtbs_check, 636 modules, initramfs execution and all SHA-256 checks passed.
+- The full default build also passed, producing the 3.4 GiB compressed rootfs with libcamera/libcamera-ipa 0.7.2-4.24 and device/UCM 0.1.0-5/0.1.0-2. The rootfs checksum and complete upstream smoke test passed; this remains an offline result, not a clean-boot claim.
+
+## 2026-11-08 — libcamera sensor gain helpers verified on both cameras
+
+- Added a local libcamera 0.7.2-4.24 package with the GC02M1B gain model (`code / 1024`) and the S5KJN1 linear gain model. No black-level, color matrix or other unverified tuning was introduced. The build preserves warnings while disabling `-Werror` for the known GCC 16 AArch64 false positive in libcamera's shared-pointer code.
+- Built and signed `libcamera` and `libcamera-ipa`, checked their contents/signatures and kept the original 0.7.2-4 packages for rollback. The first installation attempt was rejected without changes because `libcamera-bug-report` belongs to libcamera-tools; the final package excludes it and installs cleanly. `pacman -Dk` passes.
+- After restarting only WirePlumber, the previous missing-helper warnings disappeared. Five-frame and 30-frame GStreamer/PipeWire captures passed on both sensors and low-volume `pw-cat` playback completed. The final-frame mean RGB values remained close to the pre-helper baseline, so image quality/calibration remains open.
+- The new package is included by the rootfs builder and by the documented one-stop offline build.

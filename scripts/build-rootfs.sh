@@ -14,9 +14,10 @@ if [[ ! -d $STAGE/.git ]]; then
     git clone --shared --no-checkout "$UPSTREAM" "$STAGE"
 fi
 git -C "$STAGE" checkout --detach "$COMMIT"
-rm -rf "$STAGE/device/dubai" "$STAGE/packages/omamobile-device-dubai" \
-    "$STAGE/packages/omamobile-ucm-dubai"
+rm -rf "$STAGE/device/dubai" "$STAGE/packages/libcamera" \
+    "$STAGE/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-ucm-dubai"
 cp -a "$ROOT/device/dubai" "$STAGE/device/dubai"
+cp -a "$ROOT/packages/libcamera" "$STAGE/packages/libcamera"
 cp -a "$ROOT/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-device-dubai"
 cp -a "$ROOT/packages/omamobile-ucm-dubai" "$STAGE/packages/omamobile-ucm-dubai"
 cp "$ROOT/rootfs/packages.base" "$ROOT/rootfs/packages.omamobile" "$STAGE/rootfs/"
@@ -48,6 +49,8 @@ tools/build-packages --local dubai --import work/published --import "$ROOT/work/
 
 # Remove Pixel Mali/Mesa and unused camera/fingerprint builds. Keep the
 # signed Hyprland 0.57.1/aquamarine 0.16 pair fetched from Omarchy edge.
+# Keep generic libcamera/libcamera-ipa until the local split packages replace
+# them: their mutual dependencies must remain downloadable during the build.
 python3 - <<'PY'
 import pathlib, subprocess
 repo = pathlib.Path('out/dubai/repo/aarch64')
@@ -57,9 +60,9 @@ for package in repo.glob('*.pkg.tar.*'):
     info = subprocess.check_output(['bsdtar', '-xOf', str(package), '.PKGINFO'], text=True)
     name = next(x.split(' = ', 1)[1] for x in info.splitlines() if x.startswith('pkgname = '))
     if name in {'mesa', 'vulkan-panfrost', 'vulkan-mesa-implicit-layers', 'hyprpm',
-                'libcamera', 'libcamera-ipa', 'gst-plugin-libcamera', 'python-libcamera', 'libfprint'}:
+                'gst-plugin-libcamera', 'python-libcamera', 'libfprint'}:
         package.unlink()
         package.with_name(package.name + '.sig').unlink(missing_ok=True)
 PY
-tools/build-packages --local dubai packages/omamobile-device-dubai packages/omamobile-ucm-dubai
+tools/build-packages --local dubai packages/libcamera packages/omamobile-device-dubai packages/omamobile-ucm-dubai
 tools/build-rootfs --local dubai --channel local

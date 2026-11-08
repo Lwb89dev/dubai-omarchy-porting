@@ -5,7 +5,13 @@
 
 Pop!_OS/Ubuntu 24.04: working Docker, QEMU AArch64 binfmt with the `F` flag, Git, Python 3, ShellCheck, curl, cpio, gzip, zstd, and GnuPG. The kernel is built in the `docker/Dockerfile.kernel` container, based on the Ubuntu 24.04 digest pinned by Omarchy Mobile and equipped with AArch64 GCC and LLVM/Clang.
 
-Default GCC build:
+## Complete offline build
+
+`scripts/build-all.sh` is the one-stop entry point for the current port. It runs the static checks and source fetch, creates `work/kernel-one-stop`, applies all patches in `kernel/patches/`, builds the LLVM kernel in `out/kernel-llvm`, validates both DTBs, builds the RNDIS initramfs in `out/initramfs-llvm`, verifies those artifacts, and builds the Arch/Omarchy rootfs. The dedicated worktree is reusable when it contains exactly the current patches; unexpected source changes are rejected rather than overwritten.
+
+Set `BUILD_ROOTFS=0` to skip the rootfs, or `PANEL=csot`/`tianma` to also produce an untested boot image in `out/images-llvm`. `FIRMWARE_DIR` and `DUBAI_ZAP_FIRMWARE` must be supplied together to include Adreno firmware; `SSH_PUBLIC_KEY`, `NBD_SERVER`, `USB_NET_FUNCTION`, `JOBS`, and the output variables are optional. The command never accesses a device or writes internal storage. Individual steps remain available below for debugging.
+
+## Default GCC build
 
 ```sh
 scripts/fetch-sources.sh
@@ -61,9 +67,9 @@ The output contains `UNTESTED` and a `NOT-FOR-FLASH` marker. Compiling does not 
 
 ## Arch/Omarchy rootfs
 
-`scripts/build-rootfs.sh --prepare-only` creates `work/omarchy-dubai` at the pinned upstream revision and applies only this port's descriptors, device package, and package list. The upstream sources stay unchanged.
+`scripts/build-rootfs.sh --prepare-only` creates `work/omarchy-dubai` at the pinned upstream revision and applies only this port's descriptors, local packages, and package list. The upstream sources stay unchanged.
 
-`scripts/build-rootfs.sh --build` uses the upstream scripts: it creates an unpublished local key, downloads in parallel only the dubai packages with index/signatures/SHA-256 verified, builds only `omamobile-device-dubai` and `omamobile-ucm-dubai`, uses ALARM Mesa with Freedreno, and invokes `tools/build-rootfs`. For library consistency, Hyprland 0.57.1-2 and aquamarine 0.16.0-1.1 come from the signed Omarchy edge binaries pinned in `sources.lock`; Omarchy stays at pin 4.0.6. It requires the module tarball of the same kernel. Log in `out/rootfs/logs/build.log`. It does not write to the phone.
+`scripts/build-rootfs.sh --build` uses the upstream scripts: it creates an unpublished local key, downloads in parallel only the dubai packages with index/signatures/SHA-256 verified, builds the dubai libcamera sensor helpers plus `omamobile-device-dubai` and `omamobile-ucm-dubai`, uses ALARM Mesa with Freedreno, and invokes `tools/build-rootfs`. For library consistency, Hyprland 0.57.1-2 and aquamarine 0.16.0-1.1 come from the signed Omarchy edge binaries pinned in `sources.lock`; Omarchy stays at pin 4.0.6. It requires the module tarball of the same kernel. Log in `out/rootfs/logs/build.log`. It does not write to the phone.
 
 The image, checksum, and manifest are published in `work/omarchy-dubai/out/dubai/` as `omamobile-rootfs-dubai-<date>-aarch64.img.zst`, `.img.zst.sha256`, and `.MANIFEST`. The builder automatically runs `tests/rootfs-smoke` before publication; a successful rootfs build is not the same as a verified boot on the device.
 

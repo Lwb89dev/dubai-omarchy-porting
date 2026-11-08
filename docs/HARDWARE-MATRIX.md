@@ -15,12 +15,12 @@ Legend: **S** = present in the sources; **B** = built; **R** = detected on the p
 | WCN6750 Wi-Fi | Node okay, ath11k AHB, Motorola_dubai calibration | ath11k=m | **T:** WPSS/ath11k active; real scan, WPA2 DHCP/DNS, Internet and HTTPS verified; board-data warning remains |
 | WCN6750 Bluetooth | UART7, PMU, hci_qca | Modules configured | **T/P:** local public address, LE discovery, PC pairing/connection and A2DP playback pass; packaged udev setup needs a future boot test |
 | Audio | WCD9375, two AW88261, QDSP6, ADSP, UCM fork | UCM 0.1.0-2 plus two S32 patches | **T:** 10-second 440 Hz tone clearly audible at 50%; backend S32_LE, Q6 mapping and playback verified; PipeWire playback/capture also pass with libcamera nodes active |
-| Battery | `CONFIG_BATTERY_QCOM_BATTMGR=y`, PMIC GLINK | Configured | **T/P:** ADSP enables real capacity/status/temperature and UPower; charge-full is unreadable and firmware power is implausible, breaking energy/rate |
+| Battery | `CONFIG_BATTERY_QCOM_BATTMGR=y`, PMIC GLINK | Configured; charge/POWER_NOW fixes built offline | **T/P:** ADSP enables real capacity/status/temperature and UPower; running kernel still has unreadable charge-full and implausible firmware power |
 | Charging | PMIC GLINK/USB-C and thermal in the DTS | Drivers present | **T/P:** USB online and charging reported with plausible V/I; suspend and long-term safety not tested |
 | Sensors | FastRPC/CDSP and mount-matrix rule | FastRPC module | **R/P:** ADSP FastRPC active; CDSP, libssc/hexagonrpcd and sensor service not integrated |
 | Fingerprint | Pins/SPI reserved in the DTS; no demonstrated userspace support | NV | NV; no RPMB modification allowed |
 | Modem | MPSS remoteproc, IPA, QRTR/QMI, Q6Voice | Modules/drivers present | NV; SIM/data/SMS/calls/IMS not tested |
-| Cameras | CAMSS/CCI, S5KJN1 and GC02M1B in the DTS | CAMSS module | **T/P:** GStreamer captured five RGBA frames from each sensor through PipeWire/libcamera without blocking audio; S5KJN1 selection fix builds offline but needs a boot test; image quality and calibration open |
+| Cameras | CAMSS/CCI, S5KJN1 and GC02M1B in the DTS | CAMSS module; libcamera 0.7.2-4.24 gain helpers | **T/P:** PipeWire captures and audio pass on both sensors with recognized gain models; S5KJN1 selection fix still needs a boot test; image quality and calibration open |
 | Suspend/resume | Partial wakeup nodes and pinctrl | Generic support | NV; s2idle not enabled by default |
 | Thermal | TSENS/PMIC ADC, several zones; PA2 disabled | Built-in drivers | NV; thresholds and power draw not tested |
 | Vibrator | AW86224 pins named, no complete driver node | NV | NV |
