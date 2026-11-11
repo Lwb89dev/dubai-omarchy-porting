@@ -96,6 +96,7 @@ zstd -q -d --sparse -f \
 FIRSTBOOT_CONF=<private-firstboot.conf> SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
   DUBAI_ZAP_FIRMWARE=<private-dubai-a660_zap.mbn> \
   DUBAI_ADSP_DIR=<private-adsp-directory> DUBAI_WPSS_FIRMWARE=<private-wpss.mbn> \
+  DUBAI_MODEM_DIR=<private-modem-directory> \
   DUBAI_WIFI_BOARD=<private-WCN6750-board-2.bin> \
   DUBAI_AUDIO_FIRMWARE=<private-aw88261_acf.bin> scripts/provision-nbd-rootfs.sh
 qemu-img create -f qcow2 -F raw \

@@ -8,6 +8,7 @@ CONF=${FIRSTBOOT_CONF:?Set FIRSTBOOT_CONF to the private firstboot configuration
 PUB=${SSH_PUBLIC_KEY:?Set SSH_PUBLIC_KEY to a public .pub key}
 ZAP=${DUBAI_ZAP_FIRMWARE:?Set DUBAI_ZAP_FIRMWARE to the private dubai zap firmware}
 ADSP_DIR=${DUBAI_ADSP_DIR:?Set DUBAI_ADSP_DIR to the private adsp firmware directory}
+MODEM_DIR=${DUBAI_MODEM_DIR:?Set DUBAI_MODEM_DIR to the private modem firmware directory}
 WPSS=${DUBAI_WPSS_FIRMWARE:?Set DUBAI_WPSS_FIRMWARE to the private wpss.mbn}
 BOARD=${DUBAI_WIFI_BOARD:?Set DUBAI_WIFI_BOARD to the private WCN6750 board-2.bin}
 AUDIO=${DUBAI_AUDIO_FIRMWARE:?Set DUBAI_AUDIO_FIRMWARE to the private aw88261_acf.bin}
@@ -68,6 +69,13 @@ dests=(
 )
 for file in "$ADSP_DIR"/adsp.mbn "$ADSP_DIR"/adsp*.jsn; do
     [[ -f $file && $file != *[[:space:]]* ]] || { echo "Invalid ADSP firmware: $file" >&2; exit 1; }
+    sources+=("$file")
+    dests+=("/usr/lib/firmware/qcom/sm7325/motorola/dubai/${file##*/}")
+done
+for file in "$MODEM_DIR"/modem.mbn "$MODEM_DIR"/modem*.jsn \
+            "$MODEM_DIR"/cdsp.mbn "$MODEM_DIR"/cdsp*.jsn \
+            "$MODEM_DIR"/yupik_ipa_fws.mbn; do
+    [[ -f $file && $file != *[[:space:]]* ]] || { echo "Invalid modem firmware: $file" >&2; exit 1; }
     sources+=("$file")
     dests+=("/usr/lib/firmware/qcom/sm7325/motorola/dubai/${file##*/}")
 done
