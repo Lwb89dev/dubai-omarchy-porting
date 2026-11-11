@@ -15,7 +15,18 @@ if [[ ! -d $STAGE/.git ]]; then
     # promisor remote, which breaks fresh CI checkouts of a blobless source.
     git clone --no-checkout "$UPSTREAM" "$STAGE"
 fi
-git -C "$STAGE" checkout --detach "$COMMIT"
+# Promisor blob fetches can die server-side on busy runners; each retry
+# only re-fetches the blobs still missing, so the checkout converges.
+checked_out=0
+for attempt in 1 2 3 4 5; do
+    if git -C "$STAGE" checkout --detach "$COMMIT" 2>/dev/null; then
+        checked_out=1
+        break
+    fi
+    echo "staging checkout attempt $attempt failed; retrying" >&2
+    sleep 5
+done
+[[ $checked_out == 1 ]] || { echo "Could not check out $COMMIT in $STAGE" >&2; exit 1; }
 rm -rf "$STAGE/device/dubai" "$STAGE/packages/libcamera" \
     "$STAGE/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-ucm-dubai"
 cp -a "$ROOT/device/dubai" "$STAGE/device/dubai"
