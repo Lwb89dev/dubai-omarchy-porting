@@ -22,6 +22,11 @@ while IFS='|' read -r type name url revision reference checksum; do
         if [[ $(git -C "$dest" rev-parse HEAD 2>/dev/null || true) != "$revision" ]]; then
             git -C "$dest" checkout --detach "$revision"
         fi
+        # Resolve every blob of the pinned tree locally so later clones and
+        # worktree adds never re-enter the promisor transport: bulk lazy
+        # packs intermittently kill the server side under runner load.
+        git -C "$dest" ls-tree -r "$revision" | awk '$2 == "blob" { print $3 }' |
+            git -C "$dest" cat-file --batch >/dev/null
     }
     fetched=0
     for attempt in 1 2 3; do

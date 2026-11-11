@@ -11,22 +11,12 @@ MODE=${1:---prepare-only}
 [[ -d $UPSTREAM/.git ]] || { echo "Run scripts/fetch-sources.sh first" >&2; exit 1; }
 if [[ ! -d $STAGE/.git ]]; then
     mkdir -p "$ROOT/work"
-    # A --shared clone cannot lazy-fetch missing blobs from the upstream's
-    # promisor remote, which breaks fresh CI checkouts of a blobless source.
-    git clone --no-checkout "$UPSTREAM" "$STAGE"
+    # A worktree add uses the local object store directly: no upload-pack,
+    # no promisor backfill. Git clone against a blobless source re-enters
+    # the transport and intermittently dies server-side on lazy blob packs.
+    rm -rf "$STAGE"
+    git -C "$UPSTREAM" worktree add --detach "$STAGE" "$COMMIT"
 fi
-# Promisor blob fetches can die server-side on busy runners; each retry
-# only re-fetches the blobs still missing, so the checkout converges.
-checked_out=0
-for attempt in 1 2 3 4 5; do
-    if git -C "$STAGE" checkout --detach "$COMMIT" 2>/dev/null; then
-        checked_out=1
-        break
-    fi
-    echo "staging checkout attempt $attempt failed; retrying" >&2
-    sleep 5
-done
-[[ $checked_out == 1 ]] || { echo "Could not check out $COMMIT in $STAGE" >&2; exit 1; }
 rm -rf "$STAGE/device/dubai" "$STAGE/packages/libcamera" \
     "$STAGE/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-ucm-dubai"
 cp -a "$ROOT/device/dubai" "$STAGE/device/dubai"
