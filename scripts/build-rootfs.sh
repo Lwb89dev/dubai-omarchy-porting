@@ -11,7 +11,9 @@ MODE=${1:---prepare-only}
 [[ -d $UPSTREAM/.git ]] || { echo "Run scripts/fetch-sources.sh first" >&2; exit 1; }
 if [[ ! -d $STAGE/.git ]]; then
     mkdir -p "$ROOT/work"
-    git clone --shared --no-checkout "$UPSTREAM" "$STAGE"
+    # A --shared clone cannot lazy-fetch missing blobs from the upstream's
+    # promisor remote, which breaks fresh CI checkouts of a blobless source.
+    git clone --no-checkout "$UPSTREAM" "$STAGE"
 fi
 git -C "$STAGE" checkout --detach "$COMMIT"
 rm -rf "$STAGE/device/dubai" "$STAGE/packages/libcamera" \
