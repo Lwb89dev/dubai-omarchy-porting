@@ -328,3 +328,13 @@
 - Verified on hardware after the fs repair and a clean `fastboot boot`: sysfs current_now is +587471 µA while charging, UPower reports `state: charging`, energy-rate 1.295 W, and time-to-full 2.2 hours at 83 percent. GPU, Bluetooth auto-address, and the speaker path remain up on the new kernel; only the known plymouth unit fails.
 - Discharge sign is untestable in the NBD setup because the USB link that serves the rootfs is also the charging source; the negation follows the same unconditional convention as the downstream driver.
 - The six-patch kernel, the rebuilt live overlay chain, and this log were committed; the reference CI rebuild with patch 0006 remains scheduled for when a container runner is available.
+
+
+## 2026-11-11 (third part) — M8 suspend characterization on the sign-fix kernel
+
+- Committed the remaining session artifacts with the GitHub identity (`Lwb89dev <84742481+Lwb89dev@users.noreply.github.com>`); the owner asked to never commit with a personal email. Added a gitignore entry for the checkpatch cache byproduct.
+- DPMS off/on was dispatched through the Hyprland 0.57 Lua API (`hl.dsp.dpms("off"/"on")` via `hyprctl eval` with the instance signature from `/run/user/1000/hypr/`); both calls returned ok, the visual blank/unblank was not independently confirmed.
+- Power inventory: `/sys/power/state` offers `freeze mem`; `mem_sleep` defaults to `[deep]` with `s2idle` available; no `/sys/power/disk`; rtc0 and the PMIC alarmtimer are registered with wakeup enabled, and the dwc3 USB gadget has wakeup enabled.
+- Ran five `rtcwake -m freeze` suspends (15 s, 20 s, 20 s with USB wakeup disabled, 10 s, 60 s). Every one entered and exited s2idle cleanly (`PM: suspend entry/exit`), kept uptime and the NBD link alive, and never crashed; a clean `systemctl poweroff` was also reconfirmed earlier in the day.
+- All five sleeps lasted about 0.65-0.82 s regardless of alarm length or disabling the USB wakeup flag; `dwc3-qcom a600000.usb: port-1 HS-PHY not in L2` is logged at each suspend. No registered wakeup source accounts for the wake (wakeup_sources shows zero wake counts, including pwrkey), so an unregistered IRQ — most plausibly from the gadget link to an active host — ends the sleep. The RTC alarm never fired as the actual wake source and the power button could not be validated as a wake source because the system was always awake again before the press.
+- Consequence for M8: suspend entry and resume paths are reliable on this kernel, but sustained sleep and standby consumption are not demonstrable while the NBD rootfs is served over the same USB link; no battery-life claims are made. Root-causing the early wake (e.g., suspending with the USB link idle or in host role) is the next power task before modem bring-up.

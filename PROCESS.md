@@ -33,6 +33,7 @@ Updated: 2026-11-11 (second session).
 | Bluetooth | **Pass on device; boot automation partial** | Pairing/A2DP pass; the first udev helper raced firmware setup, runtime configuration was recovered, and the revised helper needs another boot test |
 | Audio | **Pass on device** | UCM HiFi, PipeWire playback/capture and a clearly audible 10-second ALSA tone at 50%; backend S32_LE with Q6 mapping verified; playback also passes with libcamera nodes active |
 | Battery/charging | **Pass on device (2026-11-11)** | Patch 0006 negates the SM7325 battery current; sysfs reports +587 mA while charging and UPower reports `charging` with a real time-to-full and 1.3 W rate; discharge sign not testable while the rootfs is served over the same USB link |
+| Suspend (s2idle) | **Entry/resume pass; sustained sleep blocked on device (2026-11-11)** | Five `freeze` suspends entered and exited cleanly with continuous uptime and a live NBD link; every sleep lasted about 0.7 s before an unregistered IRQ woke the system, `dwc3-qcom: port-1 HS-PHY not in L2` is the prime suspect while the gadget link to an active host exists; pwrkey wakeup_count stayed 0 and the RTC alarm never got to fire as a wake source; standby consumption not measurable in the NBD configuration |
 | Cameras | **Selection, streaming and gain helpers pass; quality partial** | S5KJN1 reports 8160×6144 correctly; libcamera 0.7.2-4.24 recognizes both gain models; captures and audio pass; calibration open |
 | qemu-nbd transport | **Pass with RNDIS; fail with NCM** | RNDIS passed 30 direct-I/O reads of 512 MiB over 39 minutes with no NBD/I/O errors; NCM previously stalled while ACM survived |
 | LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
@@ -58,4 +59,4 @@ Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualificat
 
 ## Next step
 
-Suspend/resume qualification (M8 progressive tests starting with display off/on), then modem bring-up (M9: QRTR/QMI inventory and ModemManager). Rebuild the reference LLVM kernel with patch 0006 in CI when a container is available; the 2026-11-11 verification build used the pinned Docker toolchain natively through the unlocked socket. Camera calibration, sensors, and persistent installation remain later gates.
+Root-cause the ~0.7-second s2idle wake (prime suspect: the dwc3 gadget link that cannot reach L2 while serving NBD to an active host; verify by suspending with the USB role switched or the link idle) before any standby-consumption claim. Then modem bring-up (M9: QRTR/QMI inventory and ModemManager). Rebuild the reference LLVM kernel with patch 0006 in CI when a runner is available. Camera calibration, sensors, and persistent installation remain later gates.
