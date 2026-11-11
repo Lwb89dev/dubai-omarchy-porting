@@ -1,0 +1,48 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Adapted from Nura's msm-modem-uim-selection (gitlab.nura.eco/nura/msm-modem),
+# trimmed for dubai's single QRTR node. Selects the provisioning session of
+# the first present USIM so ModemManager can pass the unlock check.
+set -eu
+
+SIM_WAIT_TIME="${SIM_WAIT_TIME:-10}"
+QMICLI="qmicli --silent -pd qrtr://0"
+
+count=0
+until $QMICLI --uim-noop >/dev/null 2>&1; do
+    count=$((count + 1))
+    if [ "$count" -ge 45 ]; then
+        echo "modem not reachable on qrtr://0" >&2
+        exit 1
+    fi
+    sleep 1
+done
+
+QMI_CARDS=$($QMICLI --uim-get-card-status || true)
+
+count=0
+until printf "%s" "$QMI_CARDS" | grep -Fq "Card state: 'present'"; do
+    if [ "$count" -ge "$SIM_WAIT_TIME" ]; then
+        echo "no sim detected after $SIM_WAIT_TIME seconds"
+        exit 0
+    fi
+    sleep 1
+    count=$((count + 1))
+    QMI_CARDS=$($QMICLI --uim-get-card-status || true)
+done
+
+if ! printf "%s" "$QMI_CARDS" | grep -Fq "Primary GW:   session doesn't exist"; then
+    echo 'Application was already selected.'
+    $QMICLI --uim-change-provisioning-session='activate=no,session-type=primary-gw-provisioning' >/dev/null || true
+fi
+
+FIRST_PRESENT_SLOT=$(printf "%s" "$QMI_CARDS" | grep "Card state: 'present'" -m1 -B1 | head -n1 | cut -c7-7)
+FIRST_PRESENT_AID=$(printf "%s" "$QMI_CARDS" | grep "usim (2)" -m1 -A3 | tail -n1 | awk '{print $1}')
+
+if [ -z "$FIRST_PRESENT_AID" ]; then
+    echo "No usim application found."
+    exit 0
+fi
+
+echo "Selecting $FIRST_PRESENT_AID on slot $FIRST_PRESENT_SLOT"
+$QMICLI --uim-change-provisioning-session="slot=$FIRST_PRESENT_SLOT,activate=yes,session-type=primary-gw-provisioning,aid=$FIRST_PRESENT_AID" >/dev/null

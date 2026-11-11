@@ -1,0 +1,14 @@
+[Unit]
+Description=Dubai SIM provisioning session selection
+# Run after rmtfs brought MPSS up; ModemManager retries unlock on its own,
+# so this only needs to win the first registration attempt.
+After=rmtfs.service
+Wants=rmtfs.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/omamobile/dubai-uim-selection
+RemainAfterExit=yes
+
+[Install]
+WantedBy=omamobile-dubai-modem.target

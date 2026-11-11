@@ -1,0 +1,27 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Give the ADSP sensor PD a writable sensor registry without touching the
+# Android persist partition: copy its sensors tree once, then bind the
+# working copy over /mnt/vendor/persist. Persist is only ever mounted
+# read-only, and only for the initial copy.
+set -euo pipefail
+
+STATE=/var/lib/dubai-sensors
+PERSIST_RO=/mnt/vendor/persist-ro
+PERSIST_BIND=/mnt/vendor/persist
+
+mkdir -p "$STATE" "$PERSIST_RO" "$PERSIST_BIND"
+
+if [[ ! -d $STATE/sensors ]]; then
+    if ! findmnt -n "$PERSIST_RO" >/dev/null; then
+        mount -o ro /dev/disk/by-partlabel/persist "$PERSIST_RO"
+    fi
+    cp -r "$PERSIST_RO/sensors" "$STATE/sensors"
+fi
+
+touch "$STATE/sensors/sns_reg_version"
+chown -R fastrpc:fastrpc "$STATE/sensors"
+
+if ! findmnt -n "$PERSIST_BIND" >/dev/null; then
+    mount --bind "$STATE" "$PERSIST_BIND"
+fi

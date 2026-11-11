@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+# The hexagonrpcd units shipped by the AUR package require
+# dev-fastrpc\x2dadsp.device, which only materializes when udev tags the
+# node for systemd.
+SUBSYSTEM=="misc", KERNEL=="fastrpc-adsp", TAG+="systemd", ENV{SYSTEMD_WANTS}="hexagonrpcd-adsp-sensorspd.service"
