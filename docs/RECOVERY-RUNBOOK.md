@@ -54,6 +54,14 @@ qemu-nbd --format=qcow2 --persistent --shared=2 --aio=threads --cache=none \
 
 The NBD initramfs loads the client only if `/etc/omamobile-nbd-server` is present. It waits up to 90 seconds for the host network, rejects an NBD device with zero capacity, and on error stays in the diagnostic shell without trying alternate mounts. Build with `USB_NET_FUNCTION=rndis` for current qualification: NCM reproducibly stalled NBD while ACM/kmsg stayed alive, whereas RNDIS passed clean firstboot and audio. The server must stay persistent, because a client reboot would otherwise stop it.
 
+A host firewall with a default-DROP input policy silently breaks NBD exactly like a missing server: ICMP echo still passes (allowed by UFW before.rules) and the host can open connections to the phone, but the phone's `nbd-client` SYN to `172.16.42.2:10809` is dropped, the 90-second window expires, and the initramfs lands in the diagnostic shell with no NBD attempt ever reaching the log. Allow the rescue subnet once, before the boot:
+
+```sh
+sudo ufw allow from 172.16.42.0/24 comment dubai-rescue
+```
+
+
+
 After every enumeration, configure the host address before the retry expires. The interface name changes on every boot; walk from its udev path to the parent USB device and require `serial=dubai-rescue`. `PRODUCT=1d6b/104/*` is a generic gadget ID and is not enough when another Linux device is also connected. Do not use the previous name or the USB interface list alone. If another gadget shares `172.16.42.0/24`, add the source-specific route documented in `docs/BUILD.md` and use `BindAddress=172.16.42.2` for SSH; otherwise replies can use the wrong interface.
 
 If ABL has exhausted the retries and marks `_b` unbootable, verify `product=dubai`, `running-bl-slot=_b/_b`, and the images, then `fastboot -s "$FASTBOOT_SERIAL" set_active b` restores only the test slot. Never use `_a` as a fallback.

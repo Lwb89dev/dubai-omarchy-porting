@@ -1,16 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Technical state of the port
 
-Updated: 2026-11-08.
+Updated: 2026-11-11.
 
 ## Current state
 
-- **Phase:** Alpha 0, Alpha 1, and Alpha 2 reached on the owner's CSOT device through the temporary RNDIS/NBD setup. Current packages completed clean firstboot; Hyprland, GPU, touch, Wi-Fi, PipeWire, microphone, and audible speaker playback have been exercised. Beta power, modem, and stability gates remain open.
+- **Phase:** Alpha 0, Alpha 1, and Alpha 2 reached on the owner's CSOT device. The 2026-11-11 session re-verified the full chain end to end: temporary `fastboot boot` of the telemetry image, automatic RNDIS/NBD bring-up, SSH, Hyprland UI, Wi-Fi, PipeWire speaker, battery telemetry, and the Bluetooth boot automation. Beta power, modem, and stability gates remain open.
 - **Port commit:** branch `main` published at `https://github.com/Lwb89dev/dubai-omarchy-porting`; read the local revision with `git rev-parse HEAD`.
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
 - **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`.
-- **Arch Linux ARM:** rootfs `2026.11.08` with stable LLVM modules; SHA-256, smoke test, clean RNDIS/NBD firstboot, pacman, and SSH passed.
-- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. All five speaker/camera/battery patches are on the running kernel; S32 audio, S5KJN1 selection and battery charge telemetry have passed on hardware. RNDIS is the working NBD transport.
+- **Arch Linux ARM:** rootfs `2026.11.08` lineage, now served as `work/rootfs-dubai-live.qcow2` over the flattened `work/rootfs-dubai-s32-q6-flat.img`; SHA-256, smoke test, RNDIS/NBD firstboot, pacman, and SSH passed.
+- **Configurations:** separate GCC and LLVM fragments on top of pmaports 7.2.9-r3. All five speaker/camera/battery patches are on the running kernel; the `kimi-dubai` SSH key is authorized beside the owner's key in the served image.
 
 ## Builds and tests
 
@@ -37,23 +37,25 @@ Updated: 2026-11-08.
 | Cameras | **Selection, streaming and gain helpers pass; quality partial** | S5KJN1 reports 8160×6144 correctly; libcamera 0.7.2-4.24 recognizes both gain models; captures and audio pass; calibration open |
 | qemu-nbd transport | **Pass with RNDIS; fail with NCM** | RNDIS passed 30 direct-I/O reads of 512 MiB over 39 minutes with no NBD/I/O errors; NCM previously stalled while ACM survived |
 | LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
+| Bluetooth boot automation | **Pass on device (2026-11-11)** | `omamobile-dubai-bluetooth-address@hci0` ran at boot; hci0 powered with a stable local address, no manual recovery |
+| NBD/RNDIS load check | **Pass on device (2026-11-11)** | 6 direct-I/O reads of 512 MiB at ~30 MB/s, about 3 GiB total, no NBD stalls, blocked requests, or I/O errors in dmesg |
 
 ## Hardware and blockers
 
 - The Android DTBO must be replaced by the empty pmaports DTBO to boot mainline; vbmeta was not modified.
-- Slot `_a` is marked unbootable; `_b` holds the test initramfs and the backup is verified.
-- Clean boot, firstboot, Dropbear/ACM cleanup, UFW, Hyprland, GPU, and touch pass without the earlier manual repairs.
-- ACM/kmsg disproved the initial S32-crash hypothesis: NCM repeatedly stalled NBD requests while the kernel and ACM stayed alive. RNDIS completed the same rootfs boot and audio tests without stalls. The final S32 mask and Q6 mapping patches produced a clearly audible 10-second tone at 50%.
-- The V4L2 monitor receives `ENOMEM` opening `/dev/video0` and leaves the shared WirePlumber event queue stuck before the libcamera hooks. `omamobile-device-dubai` 0.1.0-5 disables only `monitor.v4l2`; libcamera creates both video sources and PipeWire audio still passes.
-- GStreamer/PipeWire camera capture passes on both sensors with normal autolinking and native RGBA caps. The earlier no-link capture used `autoconnect=false`, which intentionally excludes the stream from WirePlumber linking.
-- Bluetooth starts without a public address. The device package derives a stable local address from `machine-id`; pairing/A2DP pass. The first udev attempt ran before firmware setup completed and left the controller unconfigured; manual address setup plus power-on recovered it. The revised retrying helper needs a future boot test.
+- Slot `_b` holds the test initramfs and the backup is verified. Forced reboots consume slot retries because the rescue never marks the slot successful; when both slots read `unbootable` and no slot is active, ABL shows a boot-failed screen and `fastboot boot` is rejected. The documented recovery is `fastboot set_active b` (selection only, no flash, owner-authorized on 2026-11-08 and 2026-11-11).
+- The host firewall must allow the rescue subnet or NBD never starts: with a default-DROP input policy the phone's `nbd-client` SYN to `172.16.42.2:10809` is dropped, ICMP still passes, and the initramfs expires into the diagnostic shell with no visible attempt. `sudo ufw allow from 172.16.42.0/24 comment dubai-rescue`, documented in `docs/RECOVERY-RUNBOOK.md`.
+- `scripts/host-usb-watch.sh` performs the whole host bring-up on enumeration: it binds `dubai-rescue-usb` to the interface whose USB serial is `dubai-rescue` and starts the persistent `qemu-nbd` server on `work/rootfs-dubai-live.qcow2` once `172.16.42.2` exists, so the 90-second client window is met from a clean host state.
+- Shell access without the owner's private key was solved offline: stop the server, `qemu-img convert` the overlay to `work/rootfs-dubai-s32-q6-flat.img`, `e2fsck -fy`, inject the second key into `/home/antona89/.ssh/authorized_keys` with `debugfs` (mode 0600, uid/gid 1000), then serve a fresh `work/rootfs-dubai-live.qcow2`. The owner key is preserved.
+- The Arch rootfs has no getty on `ttyGS0`; the ACM console answers only in the rescue initramfs, so serial access to the running system is unavailable.
+- UPower energy telemetry is real, but its charging-state override still reports discharging while sysfs reports Charging; the open fix is the current-sign convention.
 - Modem, suspend, sensors, and camera image quality/calibration are not qualified.
 - Proprietary firmware is not published; the NBD artifacts and captures are local only.
 
 ## Risks
 
-Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualification. The NBD strategy avoids Android storage writes beyond the already authorized boot_b/dtbo_b test, both covered by backups; a future NBD failure can still interrupt the running Linux rootfs.
+Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualification. The NBD strategy avoids Android storage writes beyond the already authorized boot_b/dtbo_b test, both covered by backups; a future NBD failure can still interrupt the running Linux rootfs. Hard resets silently consume slot retries until ABL reports both slots unbootable; keep `set_active b` in the runbook and prefer `reboot -f bootloader` from the shell over long-press resets.
 
 ## Next step
 
-Verify the revised Bluetooth helper on a future authorized boot and resolve UPower's charging-state override. Camera calibration, suspend, modem and persistent installation remain later gates.
+Resolve UPower's charging-state override (negative-current convention while `qcom_battmgr` reports Charging). Camera calibration, suspend, modem and persistent installation remain later gates.
