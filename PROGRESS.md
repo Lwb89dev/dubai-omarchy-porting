@@ -351,3 +351,14 @@
 - `rmtfs`, `qrtr`, `tqftpserv`, and `pd-mapper` all exist in AUR; no `msm-modem` equivalent exists on Arch. ModemManager was unmasked, enabled, and started with libqrtr-glib linked in, and still finds no modem while the services are closed.
 - Consequence for M9: firmware boot, glink/QRTR transport, and QMI reachability are verified; SIM detection, registration, data, and telephony stay gated on the rfs/NV layer. Next session: build the AUR pieces natively on the phone or as dubai packages, populate an rmtfs working copy from a read-only persist extraction (never write persist), restart MPSS, and re-run the QMI/UIM checks.
 - MPSS was left running; the change is runtime-only and does not survive a reboot.
+
+
+## 2026-11-11 (fifth part) — M9 modem: rmtfs layer built, crash root-caused, write gate reached
+
+- Built the AUR stack natively on the phone: `qrtr 1.2` (linux-msm lib and tools, installed first so `rmtfs` resolves its dependency), `rmtfs 1.2`, and `tqftpserv 1.2` with `makepkg`; packages install with `pacman -U` because `makepkg -s` cannot prompt for sudo. The Arch package artifacts use the `.pkg.tar.xz` suffix.
+- Installed base tooling for the builds (`base-devel`, `git`, `meson`, `ninja`) over the phone Wi-Fi with pacman's `--disable-sandbox` (Landlock is not enabled in the kernel; recorded as a fragment candidate).
+- Took read-only backups of the modem NV storage before touching anything: `dd` of `modemst1` and `modemst2` (3 MiB each) into `/var/tmp/modemst{1,2}-backup.img` on the NBD rootfs. The persist partition (32 MiB ext4) was also copied read-only and its `rfs/mdm` tree inspected, then left unused for now.
+- Started `rmtfs.service` (`rmtfs -r -P -s`, read-only raw EFS with remoteproc sync) and `tqftpserv.service` with the state directory populated from the `modem_pr` files shipped by the pinned firmware package.
+- The modem now boot-loops: `qcom_q6v5_pas 4080000.remoteproc: fatal error received: dog_hal_common.c:177:DOG detects stalled initialization`. The hardware watchdog resets the modem because initialization stalls; rmtfs logs no served requests, so the stall happens before any EFS access completes and the read-only EFS cannot satisfy the modem's first-boot journal writes.
+- Conclusion: the transport, firmware loading, and QRTR/QMI stack are all verified; the remaining blocker is the deliberately read-only EFS. The standard operating mode (rmtfs serving modemst1/2 read-write) is what LineageOS runs daily, but PROMPT.md requires owner approval for changes to NV partitions, so the session stops at this gate with backups in hand.
+- Next approved step: drop `-r` from the rmtfs unit, let MPSS boot cleanly, replicate the uim-selection step from Nura's `msm-modem` (gitlab.nura.eco/nura/msm-modem, inspected via the Alpine aports packaging; it ships a uim-selection helper plus an rmtfs.service drop-in), then probe the SIM with qmicli and hand the modem to ModemManager.
