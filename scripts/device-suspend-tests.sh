@@ -28,10 +28,10 @@ restore() {
     echo 0 > /sys/power/pm_debug_messages 2>/dev/null || true
     echo 0 > /sys/power/pm_print_times 2>/dev/null || true
     echo none > /sys/power/pm_test 2>/dev/null || true
-    if [[ -z ${WIFI_WAS_DOWN:-} && -n $WIFI_IF ]]; then
+    if [[ -n ${WIFI_WAS_DOWN:-} && -n $WIFI_IF ]]; then
         nmcli dev connect "$WIFI_IF" >/dev/null 2>&1 || true
     fi
-    if [[ -z ${MPSS_WAS_DOWN:-} && -e $MPSS ]]; then
+    if [[ -n ${MPSS_WAS_DOWN:-} && -e $MPSS ]]; then
         echo start > "$MPSS" 2>/dev/null || true
     fi
 }
@@ -61,8 +61,10 @@ freeze_once() {
     if [[ -e /sys/class/rtc/rtc0/wakealarm ]]; then
         # rtcwake segfaults on this rootfs (util-linux); program the RTC
         # alarm by hand and enter freeze through sysfs.
+        # The +N relative syntax reads back garbage on this PMIC RTC and
+        # never fires; only the absolute epoch is honored (verified live).
         echo 0 > /sys/class/rtc/rtc0/wakealarm
-        echo "+$secs" > /sys/class/rtc/rtc0/wakealarm || note "T: $name wakealarm refused"
+        echo $(( $(date +%s) + secs )) > /sys/class/rtc/rtc0/wakealarm || note "T: $name wakealarm refused"
         if ! echo freeze > /sys/power/state; then
             note "T: $name freeze entry refused"
         fi

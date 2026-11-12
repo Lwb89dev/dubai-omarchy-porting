@@ -81,7 +81,7 @@ for file in "$MODEM_DIR"/modem.mbn "$MODEM_DIR"/modem*.jsn \
 done
 # Optional SensorPD registry: the FairBlobs hexagonfs tree (sensors/ and
 # socinfo/ are installed; acdb/ and dsp/ stay excluded like on pmOS).
-HEXAGONFS=${DUBAI_HEXAGONFS_DIR:-}
+HEXAGONFS=${DUBAI_HEXAGONFS_DIR%/}
 if [[ -n $HEXAGONFS ]]; then
     [[ -d $HEXAGONFS/sensors && -d $HEXAGONFS/socinfo ]] || {
         echo "DUBAI_HEXAGONFS_DIR must point at a hexagonfs tree with sensors/ and socinfo/" >&2
