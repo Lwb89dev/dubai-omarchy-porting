@@ -21,21 +21,19 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: scripts/fetch-sources.sh
-      - run: docker build -f docker/Dockerfile.kernel -t dubai-kernel-builder:24.04 docker
-      - run: docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e JOBS=4 -v "$PWD:$PWD" -w "$PWD" dubai-kernel-builder:24.04 scripts/build-kernel.sh
-      - run: scripts/build-initramfs.sh
-      - run: scripts/validate-dtbs.sh
-      - run: scripts/verify-images.sh
+      # build-all applies kernel/patches on a pinned worktree before
+      # compiling; the workflow must not bypass it, or CI would publish
+      # an unpatched reference kernel.
+      - run: BUILD_ROOTFS=0 JOBS=4 scripts/build-all.sh
       - uses: actions/upload-artifact@v4
         with:
           name: dubai-offline-artifacts
           path: |
-            out/kernel/arch/arm64/boot/Image*
-            out/kernel/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-*.dtb
-            out/kernel/config.final
-            out/kernel/SHA256SUMS
-            out/kernel/modules-*.tar.zst
-            out/initramfs/initramfs-dubai.cpio.gz
-            out/initramfs/SHA256SUMS
+            out/kernel-llvm/arch/arm64/boot/Image*
+            out/kernel-llvm/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-*.dtb
+            out/kernel-llvm/config.final
+            out/kernel-llvm/SHA256SUMS
+            out/kernel-llvm/modules-*.tar.zst
+            out/initramfs-llvm/initramfs-dubai.cpio.gz
+            out/initramfs-llvm/SHA256SUMS
           if-no-files-found: error

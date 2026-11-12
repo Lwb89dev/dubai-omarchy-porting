@@ -70,25 +70,20 @@ fi
 }
 mapfile -t patches < <(printf '%s\n' "$ROOT"/kernel/patches/*.patch | sort)
 state=$ROOT/work/kernel-one-stop.state
-if [[ -z $(git -C "$worktree" status --porcelain) ]]; then
+diff_hash=$(cat "${patches[@]}" | sha256sum)
+if [[ -f $state && $(cat "$state") == "revision=$revision diff=${diff_hash%% *}" && \
+    -z $(git -C "$worktree" status --porcelain) ]]; then
+    echo "Kernel worktree matches the pinned revision and patch set"
+else
+    # The patch set or the pinned revision changed since the last build;
+    # the worktree is disposable, so reset it and re-apply deterministically.
+    echo "Re-syncing kernel worktree with $revision plus ${#patches[@]} patch(es)"
+    run git -C "$worktree" reset --hard "$revision"
+    run git -C "$worktree" clean -fdx
     for patch in "${patches[@]}"; do
         run git -C "$worktree" apply "$patch"
     done
-    diff_hash=$(git -C "$worktree" diff --binary | sha256sum)
-    printf 'revision=%s\ndiff=%s\n' "$revision" "${diff_hash%% *}" >"$state"
-else
-    [[ -f $state ]] || {
-        echo "$worktree has no recorded build state; use a fresh worktree" >&2
-        exit 1
-    }
-    mapfile -t saved <"$state"
-    diff_hash=$(git -C "$worktree" diff --binary | sha256sum)
-    [[ ${saved[0]:-} == "revision=$revision" && ${saved[1]:-} == "diff=${diff_hash%% *}" && \
-        -z $(git -C "$worktree" ls-files --others --exclude-standard) ]] || {
-        echo "$worktree contains unexpected source changes; use a fresh worktree" >&2
-        exit 1
-    }
-    echo "Kernel worktree matches the revision and complete diff from the previous build"
+    printf 'revision=%s diff=%s\n' "$revision" "${diff_hash%% *}" >"$state"
 fi
 
 run docker build -f docker/Dockerfile.kernel -t dubai-kernel-builder:24.04 docker

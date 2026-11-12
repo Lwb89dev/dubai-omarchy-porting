@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+# Known dtschema findings for the two sm7325-motorola-dubai DTBs, pinned
+# against dtschema 2026.9 (see scripts/validate-dtbs.sh). Every dt-validate
+# error block must contain one of these substrings, and every entry must
+# match at least one block: fix a binding and drop its line here.
+#
+# wl2864c camera-regulator driver is a postmarketOS carry, not upstream.
+wl2864c@29: failed to match any schema with compatible: ['willsemi,wl2864c']
+# ...and its chip-select GPIO property has no vendor-prefix schema entry.
+'semi,cs-gpios' does not match any of the regexes
+# glink-edge child naming: qcom,sc7180-pas.yaml expects service@N, the dubai
+# DTS (like other Qualcomm boards) uses apr-service@N.
+glink-edge:apr: 'apr-service@9', 'apr-service@a', 'apr-service@b' do not match any of the regexes
+# qcom,sc7180-pas.yaml does not know glink-edge/smem-state extensions yet.
+Unevaluated properties are not allowed ('glink-edge', 'qcom,smem-state-names', 'qcom,smem-states' were unexpected)
+# Same child-naming gap in qcom,apr.yaml.
+apr (qcom,apr-v2): 'apr-service@9', 'apr-service@a', 'apr-service@b' do not match any of the regexes
+# APR voice service children have no upstream bindings.
+apr/apr-service@9/dais: failed to match any schema with compatible: ['qcom,q6voice-dais']
+apr/apr-service@9: failed to match any schema with compatible: ['qcom,q6mvm']
+apr/apr-service@a: failed to match any schema with compatible: ['qcom,q6cvs']
+apr/apr-service@b: failed to match any schema with compatible: ['qcom,q6cvp']
+# Front camera sensor driver is downstream-only on this tree.
+sensor@37: failed to match any schema with compatible: ['galaxycore,gc02m1b']
+# Panel bindings for the two dubai display variants are not upstream yet.
+panel@0: failed to match any schema with compatible: ['csot,nt37701-dubai', 'novatek,nt37701']
+panel@0: failed to match any schema with compatible: ['tianma,nt37701-dubai', 'novatek,nt37701']
+# Machine-driver sound card node has no binding (common upstream).
+/sound: failed to match any schema with compatible: ['motorola,dubai-sndcard']
+# The wcd937x binding requires qcom,wcd9375-codec to be paired with
+# qcom,wcd9370-codec; the dubai DTS lists wcd9375 alone. Upstreamable DTS
+# fix candidate, kept allowlisted until it can be re-tested on hardware.
+audio-codec (qcom,wcd9375-codec): compatible: 'oneOf' conditional failed

@@ -1,0 +1,40 @@
+From: Lwb89dev <84742481+Lwb89dev@users.noreply.github.com>
+Date: Wed, 12 Nov 2026 12:30:00 +0100
+Subject: [PATCH] dt-bindings: sound: qcom,lpass-tx-macro: allow SM7325 with
+ SM8450 fallback
+
+The Motorola Edge 30 (dubai) and the Fairphone 5 (QCM6490) both describe
+their TX macro with
+
+	compatible = "qcom,sm7325-lpass-tx-macro", "qcom,sm8450-lpass-tx-macro";
+
+which matches neither branch of the binding: the first branch only
+accepts a single compatible, and the second branch pairs the new SoCs
+with a constant "qcom,sm8550-lpass-tx-macro" fallback. Add SM7325 to the
+paired enum and relax the fallback to the SM8450/SM8550 set both in-tree
+users need, so `make CHECK_DTBS` stops reporting these boards.
+
+No functional change; the fallback compatible is the one the driver
+matches today.
+
+Reference: https://lore.kernel.org/linux-arm-msm/20260526-sc7280-tx-macro-v1-0-1aad6900fec0@fairphone.com/
+---
+diff --git a/Documentation/devicetree/bindings/sound/qcom,lpass-tx-macro.yaml b/Documentation/devicetree/bindings/sound/qcom,lpass-tx-macro.yaml
+index d8682ff2e..728a3d72e 100644
+--- a/Documentation/devicetree/bindings/sound/qcom,lpass-tx-macro.yaml
++++ b/Documentation/devicetree/bindings/sound/qcom,lpass-tx-macro.yaml
+@@ -23,10 +23,13 @@ properties:
+           - enum:
+               - qcom,eliza-lpass-tx-macro
+               - qcom,kaanapali-lpass-tx-macro
++              - qcom,sm7325-lpass-tx-macro
+               - qcom,sm8650-lpass-tx-macro
+               - qcom,sm8750-lpass-tx-macro
+               - qcom,x1e80100-lpass-tx-macro
+-          - const: qcom,sm8550-lpass-tx-macro
++          - enum:
++              - qcom,sm8450-lpass-tx-macro
++              - qcom,sm8550-lpass-tx-macro
+ 
+   reg:
+     maxItems: 1
