@@ -1,88 +1,77 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Dubai s2idle suspend analysis (M8)
 
-State after the 2026-11-11 sessions: `freeze` (s2idle) entry and resume are
-reliable — five `rtcwake -m freeze` runs entered and exited cleanly with
-continuous uptime and a live NBD link. Every sleep still ended after
-0.65–0.82 s regardless of the requested duration, so sustained sleep and
-standby consumption remain unproven.
+Updated 2026-11-12 after the first live instrumented session on the CI
+reference kernel (7.2.9-dubai+ #1, Landlock + PM_DEBUG).
 
-## What the kernel tells us
+## Confirmed facts (measured on hardware)
 
-`dwc3_qcom_suspend()` (drivers/usb/dwc3/dwc3-qcom.c:349) logs
-`port-1 HS-PHY not in L2` whenever `PWR_EVNT_IRQ_STAT` lacks
-`PWR_EVNT_LPM_IN_L2` at suspend time. That check is informational: with the
-RNDIS/NBD gadget link active, the host keeps the port out of L2, so the
-message appears on every suspend. It proves the USB link was awake at entry;
-it does not by itself prove the USB link caused the wake.
+1. **s2idle entry and resume are reliable.** Every freeze enters and exits
+   cleanly; uptime and the NBD link survive short sleeps.
+2. **The premature ~0.6 s wake is USB gadget link traffic.** With the
+   RNDIS/NBD gadget link up and an active host, the system wakes after
+   0.6–0.8 s regardless of the RTC alarm length. With the gadget link
+   administratively down (`ip link set usb0 down`), the system enters a
+   sustained freeze — verified twice (the phone stayed asleep for minutes
+   until a forced reboot).
+3. **`HS-PHY not in L2` is a symptom, not the cause.** It appears at every
+   suspend while the link is up and is absent with the link down.
+4. **No other wake source wakes s2idle.** The RTC wakealarm
+   (`/sys/class/rtc/rtc0/wakealarm`, absolute epoch — the `+N` relative
+   syntax reads back garbage) and the PMIC power key both fail to wake the
+   system from a sustained freeze. Both devices report `power/wakeup:
+   enabled`, and the RTC interrupt fires at runtime (count 0 → 1 on a +3 s
+   alarm), so PMIC→AP delivery works while running.
+5. **rtcwake(1) segfaults on this rootfs** (util-linux); the matrix script
+   programs the RTC alarm through sysfs and enters freeze via
+   `/sys/power/state` instead.
 
-`/sys/kernel/debug/wakeup_sources` showed zero active counts for every
-registered source after the wakes (including `pwrkey` and the RTC), so the
-wake is either a PHY/IRQ-level event that is not accounted as a wakeup
-source, or a source that re-arms itself.
+## Working hypothesis
 
-## Candidate wake sources, ranked
+With the gadget link quiet the system reaches a sustained s2idle, but the
+PMIC SPI interrupts (rtc, pwrkey, resin — all `spmi` edge IRQs) do not wake
+the WFI-ing CPUs, while USB (dwc3) interrupts do. The QCOM PDC wakeup
+controller present in some form on sc7280 (kodiak.dtsi carries
+`qcom,sc7280-pdc`) has **no driver in this kernel tree** (no
+drivers/soc/qcom/pdc.c, no irqchip PDC) and dubai/sm7325 DTS carries no pdc
+node, so there is no evidence a PDC path is programming those interrupts as
+wakeup sources at the always-on level. pmOS uses the same kernel base, so
+either pmOS on dubai has the same gap (likely, undocumented) or something
+in its userspace bring-up differs — to be checked against a pmOS boot.
 
-1. **USB gadget link activity (dwc3).** The NBD rootfs shares the link with
-   the host; host-side traffic (TCP ACKs, timer ticks in qemu-nbd or
-   NetworkManager) reaches a PHY whose link never reached L2. Disabling the
-   USB wakeup flag in one test did not change the 0.7 s wake, but the
-   PHY-level interrupt path (`qcom_dwc3_resume_irq`) does not depend on the
-   generic wakeup flag. *Test first.*
-2. **Modem (MPSS) traffic.** MPSS was left running with rmtfs/tqftpserv
-   attached; QRTR/SMD heartbeat traffic can raise glink interrupts in
-   s2idle. postmarketOS suspends the modem PD as part of its low-power
-   flow, which we have not replicated.
-3. **Wi-Fi (ath11k).** The interface was up and associated; without a
-   wowlan configuration the firmware may wake the host on RX. Dubai's
-   calibration fallback warning means wowlan was never validated either.
-4. **Touch/sensor IRQ noise.** Goodix and the PMIC keys are registered
-   wakeup sources with zero counts — least likely.
+## Consequences
 
-The fixed ~0.7 s period (independent of the requested sleep length) points
-at a periodic source: modem heartbeat or host link traffic are the best
-fits; the RTC alarm is ruled out because 60 s requests also woke at 0.7 s.
+- **M8 is not closable yet**: a phone that cannot be woken (pwrkey) after
+  suspend is not usable, independent of the USB/NBD storage strategy.
+- The storage question also remains: with the NBD link up the phone cannot
+  stay asleep; a persistent install with an idle/host-suspended USB port
+  would avoid the USB wakeups but still needs PMIC wake.
 
-## Runtime instrumentation (next reference kernel)
+## Next diagnostic steps (in order)
 
-Both kernel fragments now enable `CONFIG_PM_DEBUG=y` and
-`CONFIG_PM_SLEEP_DEBUG=y`, which unlock, without further rebuilds:
+1. Compare with postmarketOS on dubai: does suspend+resume actually work
+   there (device wiki, or a pmOS USB boot test)? If pmOS suspends and wakes
+   with pwrkey, diff the runtime state (which remoteprocs run, any PDC/
+   TLMM wake config scripts).
+2. Capture suspend-time IRQ state: with `pm_debug_messages=1`, freeze with
+   the link down and dump `/sys/kernel/irq/<n>/{wakeup,disable_depth}` for
+   the spmi/rtc/pwrkey IRQs before and after entry, plus the PM core's
+   noirq log lines, to see whether the interrupts are being disabled at
+   suspend.
+3. Test whether `irq_set_irq_wake` on the spmi_arb parent SPI makes the
+   child PMIC interrupts wake the system (kernel experiment; PDC driver
+   absence makes this the likely fix area).
+4. Re-run `scripts/device-suspend-tests.sh` once a wake source works, to
+   measure real sleep duration vs the RTC alarm and then standby
+   consumption on battery.
 
-- `echo 1 > /sys/power/pm_debug_messages` — PM core logs device suspend
-  and resume timing, and which device reports first on resume.
-- `echo 1 > /sys/power/pm_print_times` — entry/exit latency per phase.
-- `/sys/power/pm_test` — freeze devices at a chosen phase (none/core/
-  processors/platform/devices) to bisect which phase releases the wake.
+## Operational notes for future sessions
 
-## Test matrix for the next device session
-
-`scripts/device-suspend-tests.sh` automates T0–T3 and T5 below (run as
-root on the device, output bundle in `/var/tmp/dubai-suspend-tests-*`);
-T4 runs too when the kernel has PM_DEBUG. Each test restores the Wi-Fi
-link and MPSS afterwards and never touches the dwc3 IRQ.
-
-Run each test from a root shell while serving the NBD rootfs as usual, and
-capture `dmesg -Tw` plus `/sys/kernel/debug/wakeup_sources` (sorted by
-`active_count`) immediately after each wake.
-
-| # | Action | Expected if the hypothesis holds |
-|---|--------|----------------------------------|
-| T0 | Baseline with `pm_debug_messages` + `pm_print_times` on, then `rtcwake -m freeze -s 20` | dmesg shows which device suspends last / resumes first, and any `noirq` wake report |
-| T1 | `ip link set wld0 down` (kill Wi-Fi RX), then freeze 20 s | sleep sustains past 0.7 s → ath11k; re-enable wowlan patterns afterwards |
-| T2 | Stop MPSS (`echo stop > /sys/class/remoteproc/remoteproc0/state`), freeze 20 s | sleep sustains → modem heartbeat; document the pmOS low-power modem flow as a prerequisite |
-| T3 | From the host, stop the qemu-nbd server and all traffic generators (`nmcli` down the gadget profile is not possible — instead `tc qdisc add dev <if> root netem delay 10s` to stall TX), freeze 20 s | sleep sustains → host link traffic via dwc3 |
-| T4 | `echo core > /sys/power/pm_test` then freeze | if wake persists even in pm_test=core, the source is outside device suspend (IRQ-level); bisect further with `devices`, `platform`, `processors` |
-| T5 | If T0–T4 isolate nothing: mask IRQs one by one from `/proc/interrupts` candidates (goodix, pmic, dwc3) with a userspace freeze in between | the wake stops when the offending IRQ is masked |
-
-Success criterion for closing M8 suspend: a 60 s `freeze` with Wi-Fi up and
-the NBD link live lasts ≥ 55 s, resumes cleanly from the power button or
-RTC, and `pm_print_times` shows stable entry/exit latencies. Only then
-measure standby consumption (battery delta over a timed window on battery
-power with the USB link in host-suspended state).
-
-## Non-goals
-
-Do not enable suspend-by-default in the device package before the success
-criterion passes, and do not claim battery-life numbers from the NBD
-configuration — the serving link is also the charging source, so discharge
-measurements are impossible in this setup.
+- Freeze without a working wake source bricks the session until a forced
+  reboot (Power ~10 s) — always arm the RTC with an absolute epoch and
+  confirm readback before entering freeze, and keep the USB link up unless
+  someone can press buttons.
+- The 2026-11-12 session also proved the BTF consistency rule:
+  modules must come from the same build as the running kernel
+  (`failed to validate module BTF: -22` otherwise); the CI artifact
+  modules are installed into the live rootfs now.
