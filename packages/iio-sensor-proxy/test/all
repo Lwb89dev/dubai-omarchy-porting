@@ -1,0 +1,10 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.."
+
+grep -q '^arch=(aarch64)$' packages/iio-sensor-proxy/PKGBUILD
+grep -q 'Dssc-support=enabled' packages/iio-sensor-proxy/PKGBUILD
+grep -q '^         libssc$' packages/iio-sensor-proxy/PKGBUILD
+
+echo "ok iio-sensor-proxy is aarch64, depends on libssc, and force-enables the SSC backend"

@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# aarch64 rebuild of Arch's iio-sensor-proxy 3.9 with the Qualcomm SSC
+# backend force-enabled. Arch's package is x86_64-only and Alpine's does
+# not enable ssc; dubai's accelerometer/gyro/ALS/proximity live behind the
+# SensorPD, so without this flag iio-sensor-proxy sees no sensors at all.
+pkgname=iio-sensor-proxy
+pkgver=3.9
+pkgrel=1
+pkgdesc='IIO accelerometer and Compass sensor to input device proxy (Qualcomm SSC enabled)'
+arch=(aarch64)
+url='https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/'
+license=(GPL-3.0-only)
+depends=(glib2
+         glibc
+         libgcc
+         libgudev
+         libssc
+         polkit)
+makedepends=(git
+             meson)
+# Tests need python-dbusmock/umockdev, which are not on the dubai rootfs;
+# upstream's check() is intentionally skipped.
+source=(git+https://gitlab.freedesktop.org/hadess/iio-sensor-proxy#tag=$pkgver)
+sha512sums=('6667d70fd01285f9b48fa2dfc829e3186773457c4430f8373a8e0b4e25b0f31ee2780a3766206a13bcfb2721ce10978713b8bf61c844da027c444a754f910473')
+
+build() {
+  meson build $pkgname \
+    --prefix=/usr \
+    -Dsystemdsystemunitdir=/usr/lib/systemd/system \
+    -Dudevrulesdir=/usr/lib/udev/rules.d \
+    -Dsysconfdir=/usr/share \
+    -Dssc-support=enabled
+  meson compile -C build
+}
+
+check() {
+  :
+}
+
+package() {
+  meson install -C build --destdir="$pkgdir"
+}

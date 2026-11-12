@@ -56,6 +56,11 @@ Both kernel fragments now enable `CONFIG_PM_DEBUG=y` and
 
 ## Test matrix for the next device session
 
+`scripts/device-suspend-tests.sh` automates T0–T3 and T5 below (run as
+root on the device, output bundle in `/var/tmp/dubai-suspend-tests-*`);
+T4 runs too when the kernel has PM_DEBUG. Each test restores the Wi-Fi
+link and MPSS afterwards and never touches the dwc3 IRQ.
+
 Run each test from a root shell while serving the NBD rootfs as usual, and
 capture `dmesg -Tw` plus `/sys/kernel/debug/wakeup_sources` (sorted by
 `active_count`) immediately after each wake.
