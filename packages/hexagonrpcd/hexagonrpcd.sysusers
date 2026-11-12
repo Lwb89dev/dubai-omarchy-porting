@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: MIT
+# FastRPC user for the hexagonrpcd services (Alpine pre-install equivalent).
+u fastrpc - "FastRPC" /var/lib/fastrpc

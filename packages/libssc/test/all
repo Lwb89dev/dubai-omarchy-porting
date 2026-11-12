@@ -1,0 +1,10 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.."
+
+grep -q '^arch=(aarch64)$' packages/libssc/PKGBUILD
+grep -q 'DylanVanAssche/libssc#tag=v\$pkgver' packages/libssc/PKGBUILD
+grep -q 'libqrtr-glib' packages/libssc/PKGBUILD
+
+echo "ok libssc is pinned, aarch64, and links libqmi/libqrtr-glib"

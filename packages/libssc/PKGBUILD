@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# aarch64 port of Arch's x86_64-only libssc package
+# (https://gitlab.archlinux.org/archlinux/packaging/packages/libssc).
+pkgname=libssc
+pkgver=0.4.4
+pkgrel=1
+pkgdesc='Library for exposing Qualcomm Sensor Core sensors to Linux'
+arch=(aarch64)
+url='https://libssc.dylanvanassche.be/'
+license=(GPL-3.0-or-later)
+depends=(glib2
+         glibc
+         libgcc
+         libqmi
+         libqrtr-glib
+         protobuf-c)
+makedepends=(git
+             meson)
+source=(git+https://codeberg.org/DylanVanAssche/libssc#tag=v$pkgver)
+sha256sums=('28d9063308f0ab480d2cb79bcfff9e5fc02f5e271f9774e9448ae86911ea5c7e')
+
+build() {
+  meson build $pkgname \
+    --prefix=/usr \
+    --libexecdir=lib
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir="$pkgdir"
+}

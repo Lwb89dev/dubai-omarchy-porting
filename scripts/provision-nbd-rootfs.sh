@@ -79,6 +79,28 @@ for file in "$MODEM_DIR"/modem.mbn "$MODEM_DIR"/modem*.jsn \
     sources+=("$file")
     dests+=("/usr/lib/firmware/qcom/sm7325/motorola/dubai/${file##*/}")
 done
+# Optional SensorPD registry: the FairBlobs hexagonfs tree (sensors/ and
+# socinfo/ are installed; acdb/ and dsp/ stay excluded like on pmOS).
+HEXAGONFS=${DUBAI_HEXAGONFS_DIR:-}
+if [[ -n $HEXAGONFS ]]; then
+    [[ -d $HEXAGONFS/sensors && -d $HEXAGONFS/socinfo ]] || {
+        echo "DUBAI_HEXAGONFS_DIR must point at a hexagonfs tree with sensors/ and socinfo/" >&2
+        exit 1
+    }
+    hexroot=/usr/share/qcom/sm7325/Motorola/dubai
+    for dir in /usr/share/qcom /usr/share/qcom/sm7325 \
+               /usr/share/qcom/sm7325/Motorola "$hexroot"; do
+        ensure_dir "$dir"
+    done
+    while IFS= read -r file; do
+        rel=${file#"$HEXAGONFS"/}
+        [[ $file != *[[:space:]]* && $rel != *[[:space:]]* ]] || {
+            echo "Paths with whitespace are not supported: $file" >&2; exit 1; }
+        ensure_dir "$hexroot/$(dirname "$rel")"
+        sources+=("$file")
+        dests+=("$hexroot/$rel")
+    done < <(find "$HEXAGONFS" -type f ! -path '*/acdb/*' ! -path '*/dsp/*' | sort)
+fi
 for i in "${!sources[@]}"; do
     queue_install "${sources[$i]}" "${dests[$i]}"
 done

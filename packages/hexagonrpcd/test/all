@@ -1,0 +1,17 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.."
+
+grep -q '^pkgver=0\.4\.0$' packages/hexagonrpcd/PKGBUILD
+grep -q 'systemd-services.patch' packages/hexagonrpcd/PKGBUILD
+grep -q 'hexagonrpcd.sysusers' packages/hexagonrpcd/PKGBUILD
+
+unit=packages/hexagonrpcd/systemd-services.patch
+grep -q 'hexagonrpcd-adsp-sensorspd.service.in' "$unit"
+grep -q 'ExecStart=@bindir@/hexagonrpcd -f /dev/fastrpc-adsp -d adsp -s' "$unit"
+
+dropin=packages/hexagonrpcd/dubai-sensorspd-root.conf
+grep -q 'ExecStart=/usr/bin/hexagonrpcd -f /dev/fastrpc-adsp -d adsp -s -R /usr/share/qcom/sm7325/Motorola/dubai' "$dropin"
+
+echo "ok hexagonrpcd 0.4.0 ships systemd units, a fastrpc user, and the dubai sensor root drop-in"

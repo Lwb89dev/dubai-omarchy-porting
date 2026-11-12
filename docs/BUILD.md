@@ -97,8 +97,20 @@ FIRSTBOOT_CONF=<private-firstboot.conf> SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pu
   DUBAI_ZAP_FIRMWARE=<private-dubai-a660_zap.mbn> \
   DUBAI_ADSP_DIR=<private-adsp-directory> DUBAI_WPSS_FIRMWARE=<private-wpss.mbn> \
   DUBAI_MODEM_DIR=<private-modem-directory> \
+  DUBAI_HEXAGONFS_DIR=<private-hexagonfs-directory> \
   DUBAI_WIFI_BOARD=<private-WCN6750-board-2.bin> \
   DUBAI_AUDIO_FIRMWARE=<private-aw88261_acf.bin> scripts/provision-nbd-rootfs.sh
+```
+
+`DUBAI_HEXAGONFS_DIR` is optional; point it at the `hexagonfs/` tree of the
+pinned FairBlobs dubai-firmware checkout so the SensorPD registry and
+`socinfo` are installed under `/usr/share/qcom/sm7325/Motorola/dubai`,
+the root `hexagonrpcd-adsp-sensorspd` serves with `-R`. The `acdb/` and
+`dsp/` subtrees stay excluded, matching `firmware-motorola-dubai` on
+postmarketOS. Without it, the packaged `dubai-sensors-setup` oneshot
+falls back to the read-only Android persist copy.
+
+```sh
 qemu-img create -f qcow2 -F raw \
   -b "$PWD/work/rootfs-dubai-2026.11.07.img" work/rootfs-dubai-overlay.qcow2
 qemu-nbd --format=qcow2 --persistent --shared=2 --aio=threads --cache=none \

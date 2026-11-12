@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# 0.4.0 with the post-release systemd units from Alpine aports
+# (community/hexagonrpcd, Patch-Source: linux-msm/hexagonrpc@c4109b45),
+# plus the fastrpc user and the dubai sensorspd root drop-in the AUR
+# 0.3.2 package does not ship.
+pkgname=hexagonrpcd
+pkgver=0.4.0
+pkgrel=1
+pkgdesc='Qualcomm HexagonFS daemon (with systemd units and dubai sensor root)'
+arch=(aarch64)
+url='https://github.com/linux-msm/hexagonrpc'
+license=(GPL-3.0-or-later)
+depends=(glibc systemd)
+makedepends=(linux-headers meson)
+optdepends=('iio-sensor-proxy: exposes SSC sensors to the UI'
+            'libssc: SSC sensor access library')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/linux-msm/hexagonrpc/archive/refs/tags/v$pkgver.tar.gz"
+        systemd-services.patch
+        10-fastrpc.rules
+        hexagonrpcd.sysusers
+        dubai-sensorspd-root.conf)
+sha256sums=('fe742549a2672902d59a90dafd741a9a0acbeca059e07ff5130e2b525a66574f'
+            '44a2d4eb09394b65823f8a41574dcee7f44bccae6ce987c5a5cd0e0af2375339'
+            'f6526083151dc29b8bb6148252130fb95421af9a6cfcc451a17dc1f83e27eb30'
+            '06ceaae613e24c02154bd4bf1ab0788d27458da0ed985fe7fd51e72f84d79d3e'
+            '28d7a4f65ce57cfecba5a34052f664a8214cbcefdd21de56763172b8017495b2')
+
+prepare() {
+  cd "$srcdir/hexagonrpc-$pkgver"
+  patch -p1 -i "$srcdir/systemd-services.patch"
+}
+
+build() {
+  meson setup build "$srcdir/hexagonrpc-$pkgver" --prefix=/usr
+  meson compile -C build
+}
+
+check() {
+  meson test -C build
+}
+
+package() {
+  meson install -C build --destdir="$pkgdir"
+  install -Dm644 "$srcdir/10-fastrpc.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/10-fastrpc.rules"
+  install -Dm644 "$srcdir/hexagonrpcd.sysusers" \
+    "$pkgdir/usr/lib/sysusers.d/hexagonrpcd.conf"
+  install -Dm644 "$srcdir/dubai-sensorspd-root.conf" \
+    "$pkgdir/usr/lib/systemd/system/hexagonrpcd-adsp-sensorspd.service.d/dubai-root.conf"
+}

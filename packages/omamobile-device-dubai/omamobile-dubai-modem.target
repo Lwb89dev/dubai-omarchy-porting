@@ -1,11 +1,12 @@
 [Unit]
 Description=Dubai modem and sensor bring-up
 # Soft integration point: units that are not installed (rmtfs, tqftpserv,
-# hexagonrpcd) are skipped because Wants is soft; ModemManager ships with
-# the base Omarchy rootfs.
+# hexagonrpcd, iio-sensor-proxy) are skipped because Wants is soft;
+# ModemManager ships with the base Omarchy rootfs.
 Wants=ModemManager.service rmtfs.service tqftpserv.service \
       omamobile-dubai-uim-selection.service \
-      omamobile-dubai-sensors-setup.service
+      omamobile-dubai-sensors-setup.service \
+      hexagonrpcd-adsp-sensorspd.service iio-sensor-proxy.service
 After=multi-user.target
 
 [Install]
