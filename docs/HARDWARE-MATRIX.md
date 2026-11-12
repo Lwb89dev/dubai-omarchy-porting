@@ -17,7 +17,7 @@ Legend: **S** = present in the sources; **B** = built; **R** = detected on the p
 | Audio | WCD9375, two AW88261, QDSP6, ADSP, UCM fork | UCM 0.1.0-2 plus two S32 patches | **T:** 10-second 440 Hz tone clearly audible at 50%; backend S32_LE, Q6 mapping and playback verified; PipeWire playback/capture also pass with libcamera nodes active |
 | Battery | `CONFIG_BATTERY_QCOM_BATTMGR=y`, PMIC GLINK | Charge/POWER_NOW fixes booted | **T/P:** real charge-full, charge-now, energy and V×I rate verified; UPower incorrectly overrides Charging to discharging |
 | Charging | PMIC GLINK/USB-C and thermal in the DTS | Drivers present | **T/P:** USB online and charging reported with plausible V/I; suspend and long-term safety not tested |
-| Sensors | FastRPC/CDSP and mount-matrix rule | FastRPC module | **R/P (2026-11-11):** only PMIC ADCs in IIO (battery telemetry); motion/ALS sensors live behind SLPI and need `hexagonrpcd` (in AUR) plus `sscrpcd` (pmOS-only, must be ported); inputs (power, volume, Goodix touch, jacks) all enumerate |
+| Sensors | FastRPC/CDSP and mount-matrix rule | FastRPC module | **R/P (2026-11-12):** stack packaged, not yet run: `libssc` 0.4.4 + `iio-sensor-proxy` 3.9 (SSC force-enabled) + `hexagonrpcd` 0.4.0 sensorspd with the FairBlobs `-R` registry; a separate sscrpcd port is obsolete (upstream iio-sensor-proxy already speaks libssc). PMIC ADCs only in IIO today; inputs all enumerate |
 | Fingerprint | Pins/SPI reserved in the DTS; no demonstrated userspace support | NV | NV; no RPMB modification allowed |
 | Modem | MPSS remoteproc, IPA, QRTR/QMI, Q6Voice | Modules/drivers present | **T/P (2026-11-11):** MPSS boots stable, rmtfs serves EFS RW (owner-approved, backups taken), all QMI services on qrtr://0, real IMEI/ESN, rmnet_ipa0 data port, ModemManager creates the qcom-soc modem; SIM/data/SMS/calls/IMS blocked on a physical SIM (no-atr-received on both slots without card) |
 | Cameras | CAMSS/CCI, S5KJN1 and GC02M1B in the DTS | CAMSS module; selection fix and libcamera 0.7.2-4.24 helpers booted | **T/P:** correct 8160×6144 selection, PipeWire captures and audio pass on both sensors; image quality and calibration open |
@@ -25,7 +25,7 @@ Legend: **S** = present in the sources; **B** = built; **R** = detected on the p
 | Thermal | TSENS/PMIC ADC, several zones; PA2 disabled | Built-in drivers | NV; thresholds and power draw not tested |
 | Vibrator | AW86224 pins named, no complete driver node | NV | NV |
 | NFC | Pins named; no complete node verified | NV | NV |
-| GNSS | Modem/QMI dependency; example service in pmaports | Userspace not integrated | NV |
+| GNSS | Modem/QMI dependency; example service in pmaports | Userspace not integrated | **R (2026-11-12):** path defined in docs/TELEPHONY.md (`qmicli --loc-start/--loc-get-position` on qrtr://0), gated with the SIM like the rest of the LOC service |
 
 ## Advancement rules
 
