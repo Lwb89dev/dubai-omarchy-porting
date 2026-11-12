@@ -90,7 +90,7 @@ run docker build -f docker/Dockerfile.kernel -t dubai-kernel-builder:24.04 docke
 run docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e JOBS -e LLVM=1 \
     -e KERNEL_SRC="$worktree" -e KERNEL_OUT \
     -v "$ROOT:$ROOT" -w "$ROOT" dubai-kernel-builder:24.04 scripts/build-kernel.sh
-run scripts/validate-dtbs.sh
+run env KERNEL_SRC="$worktree" KERNEL_OUT="$KERNEL_OUT" scripts/validate-dtbs.sh
 run scripts/build-initramfs.sh
 run scripts/verify-images.sh
 

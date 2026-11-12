@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-SRC=$ROOT/sources/linux-sc7280
+SRC=${KERNEL_SRC:-$ROOT/sources/linux-sc7280}
 OUT=${KERNEL_OUT:-$ROOT/out/kernel}
 VENV=$ROOT/work/dtschema-venv
 DTSCHEMA_VERSION=2026.9
