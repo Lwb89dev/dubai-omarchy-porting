@@ -28,8 +28,12 @@ restore() {
     echo 0 > /sys/power/pm_debug_messages 2>/dev/null || true
     echo 0 > /sys/power/pm_print_times 2>/dev/null || true
     echo none > /sys/power/pm_test 2>/dev/null || true
-    [[ -z ${WIFI_WAS_DOWN:-} && -n $WIFI_IF ]] && nmcli dev connect "$WIFI_IF" >/dev/null 2>&1 || true
-    [[ -z ${MPSS_WAS_DOWN:-} && -e $MPSS ]] && echo start > "$MPSS" 2>/dev/null || true
+    if [[ -z ${WIFI_WAS_DOWN:-} && -n $WIFI_IF ]]; then
+        nmcli dev connect "$WIFI_IF" >/dev/null 2>&1 || true
+    fi
+    if [[ -z ${MPSS_WAS_DOWN:-} && -e $MPSS ]]; then
+        echo start > "$MPSS" 2>/dev/null || true
+    fi
 }
 trap restore EXIT
 
