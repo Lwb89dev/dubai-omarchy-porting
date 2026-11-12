@@ -58,7 +58,15 @@ freeze_once() {
     local name=$1 secs=$2
     note "T: $name (freeze ${secs}s, $(date -Is))"
     sync
-    if ! rtcwake -m freeze -s "$secs" >>"$DEST/console.log" 2>&1; then
+    if [[ -e /sys/class/rtc/rtc0/wakealarm ]]; then
+        # rtcwake segfaults on this rootfs (util-linux); program the RTC
+        # alarm by hand and enter freeze through sysfs.
+        echo 0 > /sys/class/rtc/rtc0/wakealarm
+        echo "+$secs" > /sys/class/rtc/rtc0/wakealarm || note "T: $name wakealarm refused"
+        if ! echo freeze > /sys/power/state; then
+            note "T: $name freeze entry refused"
+        fi
+    elif ! rtcwake -m freeze -s "$secs" >>"$DEST/console.log" 2>&1; then
         note "T: $name rtcwake FAILED (rc=$?)"
     fi
     snapshot "$name"
@@ -85,11 +93,16 @@ else
     note "T2 skipped: remoteproc0 not running"
 fi
 
-note "T3 stall host link TX with netem, 20 s freeze, then remove qdisc"
-if [[ -n $USB_IF ]]; then
+note "T3 stall host link TX, 20 s freeze, then remove qdisc"
+if [[ -n $USB_IF ]] && tc qdisc help 2>/dev/null | grep -q netem; then
     tc qdisc add dev "$USB_IF" root netem delay 30s
     freeze_once t3-host-stalled 20
     tc qdisc del dev "$USB_IF" root
+elif [[ -n $USB_IF ]]; then
+    note "T3: netem qdisc unavailable in this kernel; stalling TX via link down"
+    ip link set "$USB_IF" down
+    freeze_once t3-host-stalled 20
+    ip link set "$USB_IF" up
 else
     note "T3 skipped: no gadget interface found"
 fi
