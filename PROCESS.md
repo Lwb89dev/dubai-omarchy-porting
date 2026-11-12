@@ -1,14 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Technical state of the port
 
-Updated: 2026-11-11 (second session).
+Updated: 2026-11-12 (fifth session).
 
 ## Current state
 
-- **Phase:** Alpha 0, Alpha 1, and Alpha 2 reached on the owner's CSOT device. The 2026-11-11 sessions re-verified the full chain end to end and closed the UPower charging-state gate with kernel patch 0006: the phone now reports `state: charging` with a real time-to-full while charging. Beta power (suspend), modem, and stability gates remain open.
-- **Port commit:** branch `main` published at `https://github.com/Lwb89dev/dubai-omarchy-porting`; read the local revision with `git rev-parse HEAD`.
+- **Phase:** Alpha 0, Alpha 1, and Alpha 2 reached on the owner's CSOT device. The 2026-11-11 sessions re-verified the full chain end to end and closed the UPower charging-state gate with kernel patch 0006: the phone now reports `state: charging` with a real time-to-full while charging. The 2026-11-12 session was offline-only (Docker socket locked, no SIM, no push rights from the `roadstrapp` token): it fixed the CI kernel/DT-validation gaps, packaged the sensor stack, enabled Landlock, documented the suspend root-cause plan and telephony research. Beta power (suspend), modem, and stability gates remain open.
+- **Port commit:** branch `main`; local HEAD `c86741b` (push to `https://github.com/Lwb89dev/dubai-omarchy-porting` is pending — the available token belongs to `roadstrapp` and has no push rights on that repository; all work is committed locally).
 - **Omarchy Mobile:** `cd90d193ac5b4056f877a96f6ec748d0998021c4`.
-- **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`, plus six out-of-tree patches (S32 speaker pair, S5KJN1 selection, battmgr charge units, SM7325 POWER_NOW hiding, SM7325 current sign).
+- **Kernel:** 7.2.9, tag `v7.2.9-sc7280`, commit `0ccea71930dbc8e32344a41be96944db4215c3c3`, plus seven out-of-tree patches (S32 speaker pair, S5KJN1 selection, battmgr charge units, SM7325 POWER_NOW hiding, SM7325 current sign, and the dt-bindings lpass-tx-macro SM7325 fix). The next reference build additionally enables CONFIG_SECURITY_LANDLOCK (pacman 7 sandbox) and CONFIG_PM_DEBUG/PM_SLEEP_DEBUG (suspend instrumentation); neither changes runtime paths by itself.
 - **Arch Linux ARM:** rootfs `2026.11.08` lineage, served as `work/rootfs-dubai-live.qcow2` over the flattened and fsck-repaired `work/rootfs-dubai-live-flat2.img`; SHA-256, smoke test, RNDIS/NBD firstboot, pacman, and SSH passed.
 
 ## Builds and tests
@@ -43,6 +43,9 @@ Updated: 2026-11-11 (second session).
 | LineageOS rollback | **Pass** | Original boot_b restored and boot completed before the DTBO test |
 | Bluetooth boot automation | **Pass on device (2026-11-11)** | `omamobile-dubai-bluetooth-address@hci0` ran at boot; hci0 powered with a stable local address, no manual recovery |
 | NBD/RNDIS load check | **Pass on device (2026-11-11)** | 6 direct-I/O reads of 512 MiB at ~30 MB/s, about 3 GiB total, no NBD stalls, blocked requests, or I/O errors in dmesg |
+| dtschema validation | **Pass offline (2026-11-12)** | dtschema 2026.9 processed schema rebuilt host-side; 14 known findings per panel, all allowlisted in `tests/dtschema-allowlist.txt`; gating logic verified against real logs |
+| Sensor stack packaging | **Pass offline (2026-11-12)** | `packages/libssc` (aarch64 port of the official Arch PKGBUILD, v0.4.4) and `packages/hexagonrpcd` (0.4.0 + Alpine systemd units + sysusers + dubai `-R` drop-in) pass static checks; the systemd-services patch applies cleanly to the 0.4.0 tarball; the FairBlobs hexagonfs tree checksum matches the pmOS pin |
+| CI kernel job | **Fixed, result pending push (2026-11-12)** | The workflow used to compile the pristine tree (no patches) and run `validate-dtbs.sh` on the toolchain-less runner; it now routes through `build-all.sh`, which applies the seven patches on a disposable worktree and re-syncs it automatically when the patch set changes |
 
 ## Hardware and blockers
 
@@ -63,4 +66,4 @@ Shared `userdata`, AVB, an unbootable slot A, and incomplete hardware qualificat
 
 ## Next step
 
-M9 resumes with a physical SIM: insert it and the packaged uim-selection (`omamobile-dubai-uim-selection.service`, in device package 0.1.0-7) plus ModemManager should complete registration and data over `rmnet_ipa0`; then call tests and a VoLTE/IMS feasibility note. For M11, port `sscrpcd` from the postmarketOS packaging (it is not in AUR) on top of the now-packaged hexagonrpcd path, and investigate the GNSS/LOC service, which resets its QRTR endpoint like DPM does. Root-cause the ~0.7-second s2idle wake before any standby-consumption claim. Candidate kernel-fragment additions for the next reference build: `CONFIG_SECURITY_LANDLOCK=y` (pacman 7 sandboxing currently requires `--disable-sandbox`) and a `serial-getty@ttyGS0` unit if serial console access is wanted. Rebuild the reference LLVM kernel with patch 0006 in CI when a runner is available — the fixed `offline-build` workflow now builds it on every push. Camera calibration, suspend-deep-dive, and persistent installation remain later gates.
+M9 resumes with a physical SIM (see `docs/TELEPHONY.md` for the ordered bring-up list and the GNSS/VoLTE feasibility notes). On the next device session with the new reference kernel (Landlock + PM_DEBUG): run the `docs/SUSPEND.md` test matrix (T0–T5) to root-cause the ~0.7 s s2idle wake before any standby-consumption claim, and build/install `libssc`, `hexagonrpcd` 0.4.0, and iio-sensor-proxy on the phone so the M11 sensor stack can be exercised (`monitor-sensor`). Push the five local commits to GitHub from an account with write access so CI runs the fixed workflow and builds the patched reference kernel. Camera calibration, suspend-deep-dive completion, and persistent installation remain later gates.
