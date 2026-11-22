@@ -1,12 +1,53 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Dubai telephony, GNSS and VoLTE state (M9/M11 research)
 
-2026-11-13: on the new NBD rootfs, rmtfs has been tested using private copies
-of modemst1, modemst2 and fsc under `/var/lib/dubai-rmtfs`, with the original
-UFS devices still read-only. The modem booted and UIM was reachable, but both
-slots again returned `no-atr-received`; ModemManager failed its unlock check.
-This is a single experimental boot, not proof of registration or persistence.
-Do not copy these evolving Linux-side EFS files back to physical partitions.
+2026-11-22: **Full M9 physical SIM verification passed on hardware** (SIM
+recognition, 4G LTE / 5G NR registration, 4G LTE data over `qmapmux0.0` /
+`rmnet_ipa0` with ICMP ping and HTTPS, incoming SMS storage via
+`omatel-agent`, incoming/outgoing CS voice calls with two-way audio on both
+Earpiece and Speakerphone via `dummystreamhack` + `dubai-callaudiod` +
+`omamobile-ucm-dubai 0.1.0-3`, and live 3GPP + GPS NMEA location via
+ModemManager).
+
+### 2026-11-22 live SIM & call-audio findings
+
+1. **Motorola DHOB / RFS requirement in `tqftpserv`:** Motorola's MPSS
+   firmware (`M7325_HI433_*`) requests `dhob.bin`, `shob.bin`,
+   `datablock/{id_00,id_01,slid_00}`, `cal_rfs/*`, and `mot_rfs/imei_sv`
+   over TFTP (`tqftpserv`). Without them, the modem writes
+   `FATAL: blank dhob in trusted mode` to `/var/lib/tqftpserv/dhob_report.txt`,
+   enters `Mode: 'shutting-down'`, and leaves the USIM application stuck at
+   `Application state: 'detected'` (`UimUninitialized`). Extracting
+   `persist:/rfs/msm/mpss` **strictly read-only** via `debugfs` into
+   `/var/lib/tqftpserv` on the private NBD rootfs (without mounting or
+   writing to `persist`; all six UFS LUNs remained `ro=1`) allowed DHOB
+   authentication to pass (`DHOB created at the factory`) and transitioned
+   Slot 1 USIM immediately to `Application state: 'ready'` and
+   `Personalization state: 'ready'`.
+2. **DMS online transition:** `dubai-uim-selection` now sets
+   `--dms-set-operating-mode=online` after selecting the primary-gw USIM
+   provisioning session on `qrtr://0`.
+3. **4G LTE / 5G NR registration & mobile data:** Registered on the home
+   network (`FASTWEB`, `MCC 222`, CS+PS attached, LTE `eutran-20` 10 MHz,
+   RSSI `-79 dBm`, 5G NR SNR `8.5 dB`, ModemManager `state: registered`,
+   `signal quality: 55–59%`). Connected bearer `/Bearer/1` on `qmapmux0.0`
+   (`rmnet_ipa0` QMAP mux, MTU 1430); ICMP ping and `curl -I https://1.1.1.1`
+   (`HTTP/2 301`) both succeeded over cellular data.
+4. **SMS & Voice calls (Earpiece + Speakerphone):**
+   - `omatel-agent` automatically received and stored incoming SMS messages.
+   - Packaged `dummystreamhack` (`0.r20261020.6faaa6b-1`, MIT) to hold the
+     hostless `VoiceMMode1` (`hw:0,5`) Q6Voice playback/capture streams open
+     during calls.
+   - Extended `omamobile-ucm-dubai` (`0.1.0-3`) `VoiceCall.conf` with
+     `SectionDevice."Speaker"` (`ConflictingDevice` with `Earpiece`).
+   - Added `dubai-callaudiod` in `omamobile-device-dubai` (`0.1.0-11`),
+     implementing `org.mobian_project.CallAudio` across PipeWire 1.2+ UCM
+     split profiles (`Voice Call (Earpiece, Mic3)` ↔ `Voice Call (Mic3, Speaker)`
+     ↔ `HiFi`). Owner verified clear two-way call audio on both Earpiece
+     and Speakerphone (Vivavoce).
+5. **GNSS (`mmcli --location-get`):** Returned both 3GPP cell location and
+   live GPS NMEA sentences (`$GPGSV`, satellite PRN 28 tracked indoors at
+   29 dB SNR).
 
 Consolidates the 2026-11-11 modem bring-up state with the offline GNSS and
 VoLTE/IMS feasibility research. The limited status recheck below was made on
