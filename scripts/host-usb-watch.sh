@@ -8,7 +8,7 @@ set -u
 
 REPO=/home/antona89/Documents/vscode/porting-motorola-omarchy/dubai-omarchy-porting
 QEMU_NBD="$REPO/work/toolchain-qemu/usr/bin/qemu-nbd"
-OVERLAY="$REPO/work/rootfs-dubai-live.qcow2"
+OVERLAY=${DUBAI_NBD_OVERLAY:-"$REPO/work/rootfs-dubai-live.qcow2"}
 LIBDIR="$REPO/work/toolchain-qemu/usr/lib/x86_64-linux-gnu"
 
 iface_for_serial() {

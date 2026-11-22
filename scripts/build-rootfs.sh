@@ -4,25 +4,33 @@
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 UPSTREAM=$ROOT/sources/omarchy-mobile
-STAGE=$ROOT/work/omarchy-dubai
+STAGE=${DUBAI_ROOTFS_STAGE:-$ROOT/work/omarchy-dubai}
 COMMIT=cd90d193ac5b4056f877a96f6ec748d0998021c4
 MODE=${1:---prepare-only}
 
+[[ $STAGE == /* && $STAGE != / && $STAGE != "$ROOT" && $STAGE != "$UPSTREAM" ]] || {
+    echo "DUBAI_ROOTFS_STAGE must be an absolute staging directory" >&2; exit 1;
+}
 [[ -d $UPSTREAM/.git ]] || { echo "Run scripts/fetch-sources.sh first" >&2; exit 1; }
-if [[ ! -d $STAGE/.git ]]; then
+if [[ ! -e $STAGE/.git ]]; then
     mkdir -p "$ROOT/work"
     # A worktree add uses the local object store directly: no upload-pack,
     # no promisor backfill. Git clone against a blobless source re-enters
     # the transport and intermittently dies server-side on lazy blob packs.
-    rm -rf "$STAGE"
+    [[ ! -e $STAGE ]] || { echo "Staging directory already exists and is not a Git worktree: $STAGE" >&2; exit 1; }
     git -C "$UPSTREAM" worktree add --detach "$STAGE" "$COMMIT"
 fi
 rm -rf "$STAGE/device/dubai" "$STAGE/packages/libcamera" \
-    "$STAGE/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-ucm-dubai"
+    "$STAGE/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-ucm-dubai" \
+    "$STAGE/packages/libssc" "$STAGE/packages/iio-sensor-proxy" \
+    "$STAGE/packages/hexagonrpcd-dubai-experimental" "$STAGE/packages/omamobile-autorotate-dubai"
 cp -a "$ROOT/device/dubai" "$STAGE/device/dubai"
 cp -a "$ROOT/packages/libcamera" "$STAGE/packages/libcamera"
 cp -a "$ROOT/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-device-dubai"
 cp -a "$ROOT/packages/omamobile-ucm-dubai" "$STAGE/packages/omamobile-ucm-dubai"
+for package in libssc iio-sensor-proxy hexagonrpcd-dubai-experimental omamobile-autorotate-dubai; do
+    cp -a "$ROOT/packages/$package" "$STAGE/packages/$package"
+done
 cp "$ROOT/rootfs/packages.base" "$ROOT/rootfs/packages.omamobile" "$STAGE/rootfs/"
 echo "Prepared $STAGE at Omarchy Mobile $COMMIT"
 [[ $MODE == --prepare-only ]] && exit 0
@@ -45,6 +53,21 @@ if [[ ! -f $OMARCHY_KEYRING_DIR/omarchy.gpg ]]; then
 fi
 cd "$STAGE"
 [[ -f keys/dubai/public.asc ]] || tools/local-key-init dubai
+# Firstboot recreates pacman's keyring. Include our local repository's public
+# key and trust record so pacman-key --populate can verify the offline repo.
+install -m 0755 "$ROOT/scripts/install-local-keyring.sh" rootfs/dubai-install-local-keyring
+python3 - <<'PY'
+from pathlib import Path
+path = Path('rootfs/build-inside')
+source = path.read_text()
+marker = '# Dubai local repository keyring'
+anchor = 'say "Removing per-machine state"'
+if marker not in source:
+    if source.count(anchor) != 1:
+        raise SystemExit('Cannot locate rootfs keyring insertion point')
+    source = source.replace(anchor, marker + '\n/src/rootfs/dubai-install-local-keyring "$T" /src/keys/dubai/public.asc\n\n' + anchor)
+    path.write_text(source)
+PY
 mkdir -p work/published
 python3 -I "$ROOT/scripts/fetch-published-selective.py" work/published
 "$ROOT/scripts/fetch-hyprland-deps.sh"
@@ -67,5 +90,7 @@ for package in repo.glob('*.pkg.tar.*'):
         package.unlink()
         package.with_name(package.name + '.sig').unlink(missing_ok=True)
 PY
-tools/build-packages --local dubai packages/libcamera packages/omamobile-device-dubai packages/omamobile-ucm-dubai
+tools/build-packages --local dubai packages/libcamera packages/omamobile-device-dubai \
+    packages/omamobile-ucm-dubai packages/libssc packages/iio-sensor-proxy \
+    packages/hexagonrpcd-dubai-experimental packages/omamobile-autorotate-dubai
 tools/build-rootfs --local dubai --channel local

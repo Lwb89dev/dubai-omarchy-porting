@@ -18,7 +18,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = pathlib.Path(sys.argv[1]).resolve()
 BASE = os.environ.get("OMAMOBILE_PKGS_URL", "https://pkgs.omamobile.org") + "/development/aarch64"
 KEYRING = ROOT / "sources/omarchy-mobile/packages/omamobile-keyring"
-LOCAL = {"omamobile-device-dubai", "omamobile-ucm-dubai"}
+LOCAL = {"omamobile-device-dubai", "omamobile-ucm-dubai", "libssc",
+         "iio-sensor-proxy", "hexagonrpcd-dubai-experimental", "omamobile-autorotate-dubai"}
 EXCLUDE = {
     "mesa", "vulkan-panfrost", "vulkan-mesa-implicit-layers", "hyprland", "hyprpm",
     "libcamera", "libcamera-ipa", "gst-plugin-libcamera", "python-libcamera", "libfprint",

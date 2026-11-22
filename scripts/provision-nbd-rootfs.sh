@@ -26,10 +26,16 @@ fi
 
 commands=$(mktemp)
 trap 'rm -f "$commands"' EXIT
+declare -A queued_dirs=()
 ensure_dir() {
-    if ! debugfs -R "stat $1" "$IMG" 2>/dev/null | grep -c '^Inode:' >/dev/null; then
-        printf 'mkdir %s\n' "$1" >>"$commands"
+    local target=$1 parent
+    [[ $target == / || -n ${queued_dirs[$target]+x} ]] && return 0
+    parent=${target%/*}
+    ensure_dir "${parent:-/}"
+    if ! debugfs -R "stat $target" "$IMG" 2>/dev/null | grep -q '^Inode:'; then
+        printf 'mkdir %s\n' "$target" >>"$commands"
     fi
+    queued_dirs[$target]=1
 }
 queue_install() {
     local src=$1 dest=$2
@@ -79,9 +85,33 @@ for file in "$MODEM_DIR"/modem.mbn "$MODEM_DIR"/modem*.jsn \
     sources+=("$file")
     dests+=("/usr/lib/firmware/qcom/sm7325/motorola/dubai/${file##*/}")
 done
+# The firmware bundle also contains modem service files and the video codec
+# firmware. Include them when present; neither is Android partition data.
+if [[ -f $MODEM_DIR/vpu20_1v.mbn ]]; then
+    sources+=("$MODEM_DIR/vpu20_1v.mbn")
+    dests+=(/usr/lib/firmware/qcom/sm7325/motorola/dubai/vpu20_1v.mbn)
+fi
+if [[ -d $MODEM_DIR/modem_pr ]]; then
+    while IFS= read -r dir; do
+        rel=${dir#"$MODEM_DIR"/}
+        [[ $dir != *[[:space:]]* && $rel != *[[:space:]]* ]] || {
+            echo "Paths with whitespace are not supported: $dir" >&2; exit 1;
+        }
+        ensure_dir "/usr/lib/firmware/qcom/sm7325/motorola/dubai/$rel"
+    done < <(find "$MODEM_DIR/modem_pr" -type d | sort)
+    while IFS= read -r file; do
+        rel=${file#"$MODEM_DIR"/}
+        [[ $file != *[[:space:]]* && $rel != *[[:space:]]* ]] || {
+            echo "Paths with whitespace are not supported: $file" >&2; exit 1;
+        }
+        sources+=("$file")
+        dests+=("/usr/lib/firmware/qcom/sm7325/motorola/dubai/$rel")
+    done < <(find "$MODEM_DIR/modem_pr" -type f | sort)
+fi
 # Optional SensorPD registry: the FairBlobs hexagonfs tree (sensors/ and
 # socinfo/ are installed; acdb/ and dsp/ stay excluded like on pmOS).
-HEXAGONFS=${DUBAI_HEXAGONFS_DIR%/}
+HEXAGONFS=${DUBAI_HEXAGONFS_DIR:-}
+HEXAGONFS=${HEXAGONFS%/}
 if [[ -n $HEXAGONFS ]]; then
     [[ -d $HEXAGONFS/sensors && -d $HEXAGONFS/socinfo ]] || {
         echo "DUBAI_HEXAGONFS_DIR must point at a hexagonfs tree with sensors/ and socinfo/" >&2

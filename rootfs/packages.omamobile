@@ -13,3 +13,8 @@ omamessages
 omatel-agent
 omamobile-mirror
 omamobile-ucm-dubai
+# Dubai SSC support uses an experimental confined writable-registry daemon.
+libssc
+iio-sensor-proxy
+hexagonrpcd-dubai-experimental
+omamobile-autorotate-dubai

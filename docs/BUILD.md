@@ -102,13 +102,19 @@ FIRSTBOOT_CONF=<private-firstboot.conf> SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pu
   DUBAI_AUDIO_FIRMWARE=<private-aw88261_acf.bin> scripts/provision-nbd-rootfs.sh
 ```
 
-`DUBAI_HEXAGONFS_DIR` is optional; point it at the `hexagonfs/` tree of the
+For the experimental sensor stack, provide `DUBAI_HEXAGONFS_DIR` pointing at the `hexagonfs/` tree of the
 pinned FairBlobs dubai-firmware checkout so the SensorPD registry and
 `socinfo` are installed under `/usr/share/qcom/sm7325/Motorola/dubai`,
-the root `hexagonrpcd-adsp-sensorspd` serves with `-R`. The `acdb/` and
-`dsp/` subtrees stay excluded, matching `firmware-motorola-dubai` on
-postmarketOS. Without it, the packaged `dubai-sensors-setup` oneshot
-falls back to the read-only Android persist copy.
+the setup service uses as the source for a separate Linux registry copy at
+`/var/lib/dubai-hexagonrpc`. The `acdb/` and `dsp/` subtrees stay excluded,
+matching `firmware-motorola-dubai` on postmarketOS. Without this tree the
+sensor setup fails; it does not mount or copy Android persist. The rootfs
+package list includes the experimental writable-registry daemon, libssc, the
+patched sensor proxy and the Omarchy autorotation client. The client service
+is not enabled automatically for new users; enable it from the rotation tile
+or with `systemctl --user enable --now omamobile-autorotate.service`. A rootfs
+containing these packages was built and passed the image smoke checks on
+2026-11-13; a separately provisioned copy has not yet been boot-tested.
 
 ```sh
 qemu-img create -f qcow2 -F raw \
