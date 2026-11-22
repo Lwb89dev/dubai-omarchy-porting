@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+cd "$(dirname "$0")/.."
+bash -n PKGBUILD
+grep -q '_commit=6faaa6b8a98d4f6541c6e0358a790f1191acd387' PKGBUILD
+grep -q 'arch=(aarch64)' PKGBUILD
+grep -q 'depends=(alsa-lib)' PKGBUILD
+echo 'ok dummystreamhack is pinned, aarch64, and links alsa-lib'

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 pkgname=omamobile-device-dubai
 pkgver=0.1.0
-pkgrel=10
+pkgrel=11
 pkgdesc="Omarchy Mobile hardware-independent userspace policy for Motorola Edge 30 (dubai)"
 arch=(aarch64)
 url="https://github.com/derekross/omarchy-mobile"
@@ -48,6 +48,10 @@ package() {
     "$pkgdir/usr/lib/systemd/system/omamobile-dubai-modem.target"
   install -Dm644 "$startdir/dubai-rmtfs-rw.conf" \
     "$pkgdir/etc/systemd/system/rmtfs.service.d/dubai-rw.conf"
+  install -Dm755 "$startdir/dubai-callaudiod" \
+    "$pkgdir/usr/lib/omamobile/dubai-callaudiod"
+  install -Dm644 "$startdir/org.mobian_project.CallAudio.service" \
+    "$pkgdir/usr/local/share/dbus-1/services/org.mobian_project.CallAudio.service"
   install -Dm644 "$startdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
   install -dm755 "$pkgdir/etc/systemd/system/multi-user.target.wants"

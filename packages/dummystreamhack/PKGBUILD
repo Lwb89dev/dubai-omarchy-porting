@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+# Tiny ALSA PCM dummy-stream service invoked by ucm2/Motorola/dubai/VoiceCall.conf
+# to keep the Qualcomm Q6Voice hostless VoiceMMode1 playback/capture DAIs open.
+pkgname=dummystreamhack
+pkgver=0.r20261020.6faaa6b
+pkgrel=1
+pkgdesc='Tiny service that opens a dummy ALSA PCM stream for modem voice call audio'
+arch=(aarch64)
+url='https://codeberg.org/valpackett/dummystreamhack'
+license=(MIT)
+depends=(alsa-lib)
+makedepends=(meson)
+_commit=6faaa6b8a98d4f6541c6e0358a790f1191acd387
+source=("$pkgname-$_commit.tar.gz::https://codeberg.org/valpackett/dummystreamhack/archive/$_commit.tar.gz")
+sha512sums=('70a65c0ed4254bdaf5c21628b033feb33b1e38678f013207ef3ff8fb87bdb065b8f03cc87444bc6f879af88ef44c3f5491352f48a3667a185fb78d9ba173d7c1')
+
+build() {
+  arch-meson "$pkgname" build
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "$pkgname/LICENSE" -t "$pkgdir/usr/share/licenses/$pkgname"
+}

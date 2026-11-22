@@ -22,13 +22,13 @@ if [[ ! -e $STAGE/.git ]]; then
 fi
 rm -rf "$STAGE/device/dubai" "$STAGE/packages/libcamera" \
     "$STAGE/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-ucm-dubai" \
-    "$STAGE/packages/libssc" "$STAGE/packages/iio-sensor-proxy" \
+    "$STAGE/packages/dummystreamhack" "$STAGE/packages/libssc" "$STAGE/packages/iio-sensor-proxy" \
     "$STAGE/packages/hexagonrpcd-dubai-experimental" "$STAGE/packages/omamobile-autorotate-dubai"
 cp -a "$ROOT/device/dubai" "$STAGE/device/dubai"
 cp -a "$ROOT/packages/libcamera" "$STAGE/packages/libcamera"
 cp -a "$ROOT/packages/omamobile-device-dubai" "$STAGE/packages/omamobile-device-dubai"
 cp -a "$ROOT/packages/omamobile-ucm-dubai" "$STAGE/packages/omamobile-ucm-dubai"
-for package in libssc iio-sensor-proxy hexagonrpcd-dubai-experimental omamobile-autorotate-dubai; do
+for package in dummystreamhack libssc iio-sensor-proxy hexagonrpcd-dubai-experimental omamobile-autorotate-dubai; do
     cp -a "$ROOT/packages/$package" "$STAGE/packages/$package"
 done
 cp "$ROOT/rootfs/packages.base" "$ROOT/rootfs/packages.omamobile" "$STAGE/rootfs/"
@@ -91,6 +91,6 @@ for package in repo.glob('*.pkg.tar.*'):
         package.with_name(package.name + '.sig').unlink(missing_ok=True)
 PY
 tools/build-packages --local dubai packages/libcamera packages/omamobile-device-dubai \
-    packages/omamobile-ucm-dubai packages/libssc packages/iio-sensor-proxy \
+    packages/dummystreamhack packages/omamobile-ucm-dubai packages/libssc packages/iio-sensor-proxy \
     packages/hexagonrpcd-dubai-experimental packages/omamobile-autorotate-dubai
 tools/build-rootfs --local dubai --channel local

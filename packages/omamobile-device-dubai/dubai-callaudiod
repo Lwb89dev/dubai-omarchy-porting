@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# PipeWire 1.2+ UCM split-profile CallAudio daemon for Motorola Edge 30 (dubai).
+# Implements org.mobian_project.CallAudio (/org/mobian_project/CallAudio) for
+# omatel-agent and callaudiocli, switching between:
+#   - "HiFi" (mode 0)
+#   - "Voice Call (Earpiece, Mic3)" (mode 1, speaker off)
+#   - "Voice Call (Mic3, Speaker)"  (mode 1, speaker on)
+import subprocess
+from gi.repository import Gio, GLib
+
+CARD = "alsa_card.platform-sound"
+PROF_HIFI = "HiFi"
+PROF_EARPIECE = "Voice Call (Earpiece, Mic3)"
+PROF_SPEAKER = "Voice Call (Mic3, Speaker)"
+
+XML = """
+<node>
+  <interface name="org.mobian_project.CallAudio">
+    <method name="SelectMode">
+      <arg direction="in" name="mode" type="u"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <property name="AudioMode" type="u" access="read"/>
+    <method name="EnableSpeaker">
+      <arg direction="in" name="enable" type="b"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <property name="SpeakerState" type="u" access="read"/>
+    <method name="MuteMic">
+      <arg direction="in" name="mute" type="b"/>
+      <arg direction="out" name="success" type="b"/>
+    </method>
+    <property name="MicState" type="u" access="read"/>
+  </interface>
+</node>
+"""
+
+
+class CallAudioDaemon:
+    def __init__(self, conn):
+        self.conn = conn
+        self.audio_mode = 0
+        self.speaker_state = 0
+        self.mic_state = 0
+        node_info = Gio.DBusNodeInfo.new_for_xml(XML)
+        self.iface_info = node_info.lookup_interface("org.mobian_project.CallAudio")
+        self.conn.register_object(
+            "/org/mobian_project/CallAudio",
+            self.iface_info,
+            self.on_method_call,
+            self.on_get_property,
+            None,
+        )
+
+    def _run_pactl(self, *args):
+        res = subprocess.run(["/usr/bin/pactl", *args], capture_output=True, text=True)
+        return res.returncode == 0
+
+    def _emit_props(self, changed):
+        variant = GLib.Variant(
+            "(sa{sv}as)",
+            ("org.mobian_project.CallAudio", changed, []),
+        )
+        self.conn.emit_signal(
+            None,
+            "/org/mobian_project/CallAudio",
+            "org.freedesktop.DBus.Properties",
+            "PropertiesChanged",
+            variant,
+        )
+
+    def select_mode(self, mode):
+        if mode not in (0, 1):
+            return False
+        changed = {}
+        if mode == 1:
+            target = PROF_SPEAKER if self.speaker_state == 1 else PROF_EARPIECE
+            if not self._run_pactl("set-card-profile", CARD, target):
+                return False
+            if self.audio_mode != 1:
+                self.audio_mode = 1
+                changed["AudioMode"] = GLib.Variant("u", 1)
+        else:
+            self._run_pactl("set-source-mute", "@DEFAULT_SOURCE@", "0")
+            if not self._run_pactl("set-card-profile", CARD, PROF_HIFI):
+                return False
+            if self.audio_mode != 0:
+                self.audio_mode = 0
+                changed["AudioMode"] = GLib.Variant("u", 0)
+            if self.speaker_state != 0:
+                self.speaker_state = 0
+                changed["SpeakerState"] = GLib.Variant("u", 0)
+            if self.mic_state != 0:
+                self.mic_state = 0
+                changed["MicState"] = GLib.Variant("u", 0)
+        if changed:
+            self._emit_props(changed)
+        return True
+
+    def enable_speaker(self, enable):
+        new_state = 1 if enable else 0
+        if self.audio_mode == 1:
+            target = PROF_SPEAKER if enable else PROF_EARPIECE
+            if not self._run_pactl("set-card-profile", CARD, target):
+                return False
+        if self.speaker_state != new_state:
+            self.speaker_state = new_state
+            self._emit_props({"SpeakerState": GLib.Variant("u", new_state)})
+        return True
+
+    def mute_mic(self, mute):
+        new_state = 1 if mute else 0
+        if not self._run_pactl("set-source-mute", "@DEFAULT_SOURCE@", "1" if mute else "0"):
+            return False
+        if self.mic_state != new_state:
+            self.mic_state = new_state
+            self._emit_props({"MicState": GLib.Variant("u", new_state)})
+        return True
+
+    def on_method_call(self, conn, sender, path, iface, method, params, invocation):
+        if method == "SelectMode":
+            (mode,) = params.unpack()
+            if mode not in (0, 1):
+                invocation.return_dbus_error(
+                    "org.freedesktop.DBus.Error.InvalidArgs",
+                    f"Invalid mode {mode}",
+                )
+                return
+            ok = self.select_mode(mode)
+            invocation.return_value(GLib.Variant("(b)", (ok,)))
+        elif method == "EnableSpeaker":
+            (enable,) = params.unpack()
+            ok = self.enable_speaker(bool(enable))
+            invocation.return_value(GLib.Variant("(b)", (ok,)))
+        elif method == "MuteMic":
+            (mute,) = params.unpack()
+            ok = self.mute_mic(bool(mute))
+            invocation.return_value(GLib.Variant("(b)", (ok,)))
+        else:
+            invocation.return_dbus_error(
+                "org.freedesktop.DBus.Error.UnknownMethod",
+                method,
+            )
+
+    def on_get_property(self, conn, sender, path, iface, prop):
+        if prop == "AudioMode":
+            return GLib.Variant("u", self.audio_mode)
+        if prop == "SpeakerState":
+            return GLib.Variant("u", self.speaker_state)
+        if prop == "MicState":
+            return GLib.Variant("u", self.mic_state)
+        return None
+
+
+def main():
+    loop = GLib.MainLoop()
+    daemon_holder = {}
+
+    def on_bus_acquired(conn, name):
+        daemon_holder["d"] = CallAudioDaemon(conn)
+
+    def on_name_lost(conn, name):
+        loop.quit()
+
+    Gio.bus_own_name(
+        Gio.BusType.SESSION,
+        "org.mobian_project.CallAudio",
+        Gio.BusNameOwnerFlags.NONE,
+        on_bus_acquired,
+        None,
+        on_name_lost,
+    )
+    loop.run()
+
+
+if __name__ == "__main__":
+    main()

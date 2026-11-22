@@ -12,6 +12,7 @@ omaphone
 omamessages
 omatel-agent
 omamobile-mirror
+dummystreamhack
 omamobile-ucm-dubai
 # Dubai SSC support uses an experimental confined writable-registry daemon.
 libssc

@@ -46,3 +46,6 @@ fi
 
 echo "Selecting $FIRST_PRESENT_AID on slot $FIRST_PRESENT_SLOT"
 $QMICLI --uim-change-provisioning-session="slot=$FIRST_PRESENT_SLOT,activate=yes,session-type=primary-gw-provisioning,aid=$FIRST_PRESENT_AID" >/dev/null
+# Ensure the modem leaves shutting-down/low-power mode once DHOB/RFS and the
+# USIM provisioning session are ready.
+$QMICLI --dms-set-operating-mode=online >/dev/null 2>&1 || true

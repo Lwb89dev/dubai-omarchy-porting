@@ -1,20 +1,24 @@
 # SPDX-License-Identifier: 0BSD
 pkgname=omamobile-ucm-dubai
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="ALSA UCM HiFi and VoiceCall profiles for Motorola Edge 30 (dubai)"
 arch=(any)
 url="https://github.com/sc7280-mainline/alsa-ucm-conf"
 license=(BSD-3-Clause)
-depends=(alsa-ucm-conf)
+depends=(alsa-ucm-conf dummystreamhack)
 _commit=3dbb936f0cc85a5d3f12bab12a4578d85768061c
-source=("alsa-ucm-conf-$_commit.tar.gz::https://github.com/sc7280-mainline/alsa-ucm-conf/archive/$_commit.tar.gz")
-sha512sums=(b7b6a790aeaf151ef3d6af64574ea19b7cdb84b41b847283870158f0cf23abfc3553f1c766ba1c4b7687da5079bcb006820b11cf22b5f32bb28f8a3135eb784e)
+source=("alsa-ucm-conf-$_commit.tar.gz::https://github.com/sc7280-mainline/alsa-ucm-conf/archive/$_commit.tar.gz"
+        VoiceCall.conf)
+sha512sums=(b7b6a790aeaf151ef3d6af64574ea19b7cdb84b41b847283870158f0cf23abfc3553f1c766ba1c4b7687da5079bcb006820b11cf22b5f32bb28f8a3135eb784e
+            c4de24e8c0e7788161c39851602721c2ae063cf10b3a902352427b90b192d435ede36aa7a402aa45c010ccee4a0c27626dd6b6202983dcae93d3d11c7b2c05f4)
 
 package() {
   local src="$srcdir/alsa-ucm-conf-$_commit"
-  install -Dm644 "$src"/ucm2/Motorola/dubai/{dubai,HiFi,VoiceCall}.conf \
+  install -Dm644 "$src"/ucm2/Motorola/dubai/{dubai,HiFi}.conf \
     -t "$pkgdir/usr/share/alsa/ucm2/Motorola/dubai"
+  install -Dm644 "$srcdir/VoiceCall.conf" \
+    "$pkgdir/usr/share/alsa/ucm2/Motorola/dubai/VoiceCall.conf"
   install -Dm644 "$src/ucm2/codecs/qcom-lpass/tx-macro/SoundwireMic4EnableSeq.conf" \
     -t "$pkgdir/usr/share/alsa/ucm2/codecs/qcom-lpass/tx-macro"
   install -d "$pkgdir/usr/share/alsa/ucm2/conf.d/sm7325"

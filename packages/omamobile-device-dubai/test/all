@@ -24,4 +24,6 @@ grep -q 'ExecStart=/usr/lib/omamobile/dubai-bluetooth-address %i' omamobile-duba
 grep -q 'hexagonrpcd-adsp-sensorspd.service' omamobile-dubai-modem.target
 grep -q 'iio-sensor-proxy.service' omamobile-dubai-modem.target
 grep -q 'serial-getty@ttyGS0.service' PKGBUILD
-echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, carries no storage allowlist, wants the sensor stack, and opens the gadget getty'
+grep -q 'dubai-callaudiod' PKGBUILD
+grep -q 'dms-set-operating-mode=online' dubai-uim-selection
+echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, carries no storage allowlist, wants the sensor stack, wires call audio, and opens the gadget getty'
