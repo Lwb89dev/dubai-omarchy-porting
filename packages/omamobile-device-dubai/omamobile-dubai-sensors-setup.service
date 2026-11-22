@@ -1,7 +1,6 @@
 [Unit]
 Description=Dubai writable sensor registry for the ADSP sensor PD
-# Copies persist:/sensors once (persist mounted read-only), pre-creates
-# sns_reg_version, and binds the working copy at /mnt/vendor/persist.
+# Seeds a Linux-only copy from the provisioned firmware tree on first start.
 DefaultDependencies=no
 After=local-fs.target
 Before=hexagonrpcd-adsp-sensorspd.service

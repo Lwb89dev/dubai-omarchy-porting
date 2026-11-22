@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+# Unmodified rotation client from omarchy-mobile cd90d193ac5b4056f877a96f6ec748d0998021c4.
+# The Pixel-specific D-Bus sensor backend is deliberately not installed.
+pkgname=omamobile-autorotate-dubai
+pkgver=0.2.1
+pkgrel=1
+pkgdesc='Omarchy Mobile Hyprland autorotation using iio-sensor-proxy'
+arch=(any)
+url='https://github.com/derekross/omarchy-mobile'
+license=(MIT)
+depends=(python python-gobject hyprland iio-sensor-proxy)
+conflicts=(omamobile-sensors)
+source=(autorotate.py omamobile-autorotate omamobile-autorotate.service LICENSE)
+sha256sums=('8f505580e1be5d471ebf81441d167c2453f9e3295c7b84be4890d66b8c839e10'
+            '893900827162006cb14c6e44d632e0be17c563b978faae478c3f44075a59fafe'
+            'a59eade29a3e59ebcfc1b15cab5f878a9fa92321c3241f7fe72244499c4ad0de'
+            '396547546851bfdca96dff496378c55900f280c5ae2d2182095775c1d5b8fa02')
+
+check() {
+  python -m py_compile "$srcdir/autorotate.py"
+  sh -n "$srcdir/omamobile-autorotate"
+}
+
+package() {
+  install -Dm644 "$srcdir/autorotate.py" "$pkgdir/usr/lib/omamobile-sensors/autorotate.py"
+  install -Dm755 "$srcdir/omamobile-autorotate" "$pkgdir/usr/bin/omamobile-autorotate"
+  install -Dm644 "$srcdir/omamobile-autorotate.service" "$pkgdir/usr/lib/systemd/user/omamobile-autorotate.service"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

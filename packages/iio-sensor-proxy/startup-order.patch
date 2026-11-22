@@ -1,0 +1,79 @@
+From: Robin Snyders <robin@snyders.xyz>
+Subject: Open sensors before exporting D-Bus
+
+Adapted for iio-sensor-proxy 3.9 SSC support from:
+https://github.com/Sr-0w/hotdog-linux-bringup/blob/main/upstream/2026-08-25/0010-Open-the-sensors-before-exporting-the-D-Bus-interfac.patch
+
+--- a/src/iio-sensor-proxy.c
++++ b/src/iio-sensor-proxy.c
+@@ -723,22 +723,6 @@
+     };
+ 	guint i;
+ 
+-	g_dbus_connection_register_object (connection,
+-					   SENSOR_PROXY_DBUS_PATH,
+-					   data->introspection_data->interfaces[0],
+-					   &interface_vtable,
+-					   data,
+-					   NULL,
+-					   NULL);
+-
+-	g_dbus_connection_register_object (connection,
+-					   SENSOR_PROXY_COMPASS_DBUS_PATH,
+-					   data->introspection_data->interfaces[1],
+-					   &compass_interface_vtable,
+-					   data,
+-					   NULL,
+-					   NULL);
+-
+ 	/* Initialize DBus clients hash table before DBus is fully exposed */
+ 	data->client = g_udev_client_new (subsystems);
+ 
+@@ -746,15 +730,6 @@
+ 		data->clients[i] = create_clients_hash_table ();
+ 
+ 	data->connection = g_object_ref (connection);
+-}
+-
+-static void
+-name_acquired_handler (GDBusConnection *connection,
+-		       const gchar     *name,
+-		       gpointer         user_data)
+-{
+-	SensorData *data = user_data;
+-	guint i;
+ 
+ 	if (!find_sensors (data->client, data))
+ 		goto bail;
+@@ -784,6 +759,22 @@
+ 	if (!any_sensors_left (data))
+ 		goto bail;
+ 
++	g_dbus_connection_register_object (connection,
++					   SENSOR_PROXY_DBUS_PATH,
++					   data->introspection_data->interfaces[0],
++					   &interface_vtable,
++					   data,
++					   NULL,
++					   NULL);
++
++	g_dbus_connection_register_object (connection,
++					   SENSOR_PROXY_COMPASS_DBUS_PATH,
++					   data->introspection_data->interfaces[1],
++					   &compass_interface_vtable,
++					   data,
++					   NULL,
++					   NULL);
++
+ 	send_dbus_event (data, PROP_ALL);
+ 	send_dbus_event (data, PROP_ALL_COMPASS);
+ 	return;
+@@ -816,7 +807,7 @@
+ 					SENSOR_PROXY_DBUS_NAME,
+ 					flags,
+ 					bus_acquired_handler,
+-					name_acquired_handler,
++					NULL,
+ 					name_lost_handler,
+ 					data,
+ 					NULL);

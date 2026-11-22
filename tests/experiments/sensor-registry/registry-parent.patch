@@ -1,0 +1,22 @@
+--- a/hexagonrpcd/rpcd_builder.c
++++ b/hexagonrpcd/rpcd_builder.c
+@@ -29,7 +29,7 @@
+ #define ACDBDATA		"/acdb/"
+ #define DSP_LIBS		"/dsp/"
+ #define SENSORS_CONFIG		"/sensors/config/"
+-#define SENSORS_REGISTRY	"/sensors/registry/"
++#define SENSORS_REGISTRY	"/sensors/registry-parent/"
+ #define SNS_REG_CONFIG		"/sensors/sns_reg.conf"
+ #define SYSFS_SOCINFO		"/socinfo/"
+ 
+@@ -162,9 +162,7 @@
+ 	 */
+ 	persist_dir = hfs_mkdir("persist", 1,
+ 				hfs_mkdir("sensors", 1,
+-					hfs_mkdir("registry", 1,
+-						hfs_map("registry", sns_reg)
+-					)
++					hfs_map("registry", sns_reg)
+ 				)
+ 		      );
+ 

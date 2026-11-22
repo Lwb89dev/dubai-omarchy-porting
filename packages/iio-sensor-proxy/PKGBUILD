@@ -5,7 +5,7 @@
 # SensorPD, so without this flag iio-sensor-proxy sees no sensors at all.
 pkgname=iio-sensor-proxy
 pkgver=3.9
-pkgrel=1
+pkgrel=3
 pkgdesc='IIO accelerometer and Compass sensor to input device proxy (Qualcomm SSC enabled)'
 arch=(aarch64)
 url='https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/'
@@ -17,11 +17,17 @@ depends=(glib2
          libssc
          polkit)
 makedepends=(git
+             libxml2
              meson)
-# Tests need python-dbusmock/umockdev, which are not on the dubai rootfs;
-# upstream's check() is intentionally skipped.
-source=(git+https://gitlab.freedesktop.org/hadess/iio-sensor-proxy#tag=$pkgver)
-sha512sums=('6667d70fd01285f9b48fa2dfc829e3186773457c4430f8373a8e0b4e25b0f31ee2780a3766206a13bcfb2721ce10978713b8bf61c844da027c444a754f910473')
+source=(git+https://gitlab.freedesktop.org/hadess/iio-sensor-proxy#tag=$pkgver
+        startup-order.patch)
+sha512sums=('6667d70fd01285f9b48fa2dfc829e3186773457c4430f8373a8e0b4e25b0f31ee2780a3766206a13bcfb2721ce10978713b8bf61c844da027c444a754f910473'
+            'cb98a537c04cd8bee975d119b038e92c525f1467a696b1079ef12b7b1babe9d859e0b4e2bf9883ff4bb4b30d3a0e5a500a2d195758ed624ede727c4cbb03da6c')
+
+prepare() {
+  cd "$srcdir/$pkgname"
+  patch -p1 -i "$srcdir/startup-order.patch"
+}
 
 build() {
   meson build $pkgname \
@@ -34,7 +40,7 @@ build() {
 }
 
 check() {
-  :
+  meson test -C build --print-errorlogs
 }
 
 package() {

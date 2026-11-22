@@ -1,27 +1,37 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
-# Give the ADSP sensor PD a writable sensor registry without touching the
-# Android persist partition: copy its sensors tree once, then bind the
-# working copy over /mnt/vendor/persist. Persist is only ever mounted
-# read-only, and only for the initial copy.
+# Seed an independent Linux registry; never mount or write Android persist.
 set -euo pipefail
 
-STATE=/var/lib/dubai-sensors
-PERSIST_RO=/mnt/vendor/persist-ro
-PERSIST_BIND=/mnt/vendor/persist
+source_dir=/usr/share/qcom/sm7325/Motorola/dubai
+state_dir=/var/lib/dubai-hexagonrpc
 
-mkdir -p "$STATE" "$PERSIST_RO" "$PERSIST_BIND"
-
-if [[ ! -d $STATE/sensors ]]; then
-    if ! findmnt -n "$PERSIST_RO" >/dev/null; then
-        mount -o ro /dev/disk/by-partlabel/persist "$PERSIST_RO"
-    fi
-    cp -r "$PERSIST_RO/sensors" "$STATE/sensors"
+if [[ -e $state_dir || -L $state_dir ]]; then
+    [[ -d $state_dir/sensors/persist/registry && ! -L $state_dir ]] || {
+        echo "Incomplete or unsafe sensor registry: $state_dir" >&2
+        exit 1
+    }
+    exit 0
 fi
 
-touch "$STATE/sensors/sns_reg_version"
-chown -R fastrpc:fastrpc "$STATE/sensors"
-
-if ! findmnt -n "$PERSIST_BIND" >/dev/null; then
-    mount --bind "$STATE" "$PERSIST_BIND"
+[[ -d $source_dir/sensors/registry && -d $source_dir/sensors/config &&
+   -f $source_dir/sensors/sns_reg.conf && -d $source_dir/socinfo ]] || {
+    echo "Dubai sensor firmware tree missing: $source_dir" >&2
+    exit 1
+}
+if find "$source_dir/sensors" "$source_dir/socinfo" -type l -print -quit | grep -q .; then
+    echo "Sensor firmware tree contains symlinks; refusing to seed registry" >&2
+    exit 1
 fi
+
+staging=$(mktemp -d /var/lib/.dubai-hexagonrpc.XXXXXXXX)
+trap 'rm -rf -- "$staging"' EXIT
+install -d -m 0755 "$staging/sensors/persist/registry"
+cp -r --no-preserve=ownership "$source_dir/sensors/registry/." "$staging/sensors/persist/registry/"
+cp -r --no-preserve=ownership "$source_dir/sensors/config" "$staging/sensors/"
+cp --no-preserve=ownership "$source_dir/sensors/sns_reg.conf" "$staging/sensors/"
+cp -r --no-preserve=ownership "$source_dir/socinfo" "$staging/"
+chmod 0755 "$staging" "$staging/sensors" "$staging/sensors/persist"
+chown -R fastrpc:fastrpc "$staging/sensors/persist"
+mv -T -- "$staging" "$state_dir"
+trap - EXIT

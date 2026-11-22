@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: MIT
+# From Alpine aports community/hexagonrpcd (10-fastrpc.rules).
+SUBSYSTEM=="misc", KERNEL=="fastrpc-*", OWNER="fastrpc", GROUP="fastrpc", MODE="0600"

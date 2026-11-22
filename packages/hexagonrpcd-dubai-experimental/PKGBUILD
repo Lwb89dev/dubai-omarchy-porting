@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Experimental writable-registry fork; the service drop-in confines writes.
+pkgname=hexagonrpcd-dubai-experimental
+pkgver=0.5.0.r40e5041
+pkgrel=1
+pkgdesc='Experimental Qualcomm HexagonRPC daemon for Dubai sensor registry'
+arch=(aarch64)
+url='https://github.com/FadyAckad/hexagonrpc'
+license=(GPL-3.0-or-later)
+depends=(glibc systemd json-c 'omamobile-device-dubai>=0.1.0-10')
+makedepends=(linux-headers meson)
+provides=(hexagonrpcd)
+conflicts=(hexagonrpcd)
+_commit=40e50412812adce9dddc2be9a4510ebce05eef89
+source=("hexagonrpc-$_commit.tar.gz::https://codeload.github.com/FadyAckad/hexagonrpc/tar.gz/$_commit"
+        10-fastrpc.rules hexagonrpcd.sysusers dubai-root.conf)
+sha256sums=('322bf8335ac0df4f1ccbde6d3ee03de1aa0ccf28d1fdf20a917d9031af391861'
+            'f6526083151dc29b8bb6148252130fb95421af9a6cfcc451a17dc1f83e27eb30'
+            '06ceaae613e24c02154bd4bf1ab0788d27458da0ed985fe7fd51e72f84d79d3e'
+            '681358ed9b7e4551baa91f8ac41f57a043b4996d0b8e4ea7a24e1282bd051be0')
+
+build() {
+  meson setup build "$srcdir/hexagonrpc-$_commit" --prefix=/usr
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --destdir="$pkgdir"
+  install -Dm644 "$srcdir/10-fastrpc.rules" "$pkgdir/usr/lib/udev/rules.d/10-fastrpc.rules"
+  install -Dm644 "$srcdir/hexagonrpcd.sysusers" "$pkgdir/usr/lib/sysusers.d/hexagonrpcd.conf"
+  install -Dm644 "$srcdir/dubai-root.conf" "$pkgdir/usr/lib/systemd/system/hexagonrpcd-adsp-sensorspd.service.d/dubai-root.conf"
+}
