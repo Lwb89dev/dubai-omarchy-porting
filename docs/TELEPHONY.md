@@ -1,9 +1,22 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Dubai telephony, GNSS and VoLTE state (M9/M11 research)
 
+2026-11-13: on the new NBD rootfs, rmtfs has been tested using private copies
+of modemst1, modemst2 and fsc under `/var/lib/dubai-rmtfs`, with the original
+UFS devices still read-only. The modem booted and UIM was reachable, but both
+slots again returned `no-atr-received`; ModemManager failed its unlock check.
+This is a single experimental boot, not proof of registration or persistence.
+Do not copy these evolving Linux-side EFS files back to physical partitions.
+
 Consolidates the 2026-11-11 modem bring-up state with the offline GNSS and
-VoLTE/IMS feasibility research. Nothing in this document was executed on
-hardware after it was written; every claim cites its evidence.
+VoLTE/IMS feasibility research. The limited status recheck below was made on
+the subsequent NBD boot; it did not exercise registration, data or calls.
+
+On 2026-11-12 after the NBD boot, ModemManager, rmtfs and tqftpserv were
+active, remoteproc0 was running, and ModemManager listed one Qualcomm modem.
+`rmnet_ipa0` was present but down; QMI UIM reported `no-atr-received` for both
+slots and ModemManager reported a failed state. This does not prove whether a
+SIM is physically inserted or why it did not answer.
 
 ## Verified modem state (2026-11-11)
 

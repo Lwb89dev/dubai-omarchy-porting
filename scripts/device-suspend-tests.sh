@@ -61,13 +61,19 @@ freeze_once() {
     if [[ -e /sys/class/rtc/rtc0/wakealarm ]]; then
         # rtcwake segfaults on this rootfs (util-linux); program the RTC
         # alarm by hand and enter freeze through sysfs.
-        # The +N relative syntax reads back garbage on this PMIC RTC and
-        # never fires; only the absolute epoch is honored (verified live).
+        # PMK8350 rtc-pm8xxx keeps a raw hardware epoch (often 1970) while NTP
+        # advances wall-clock date(1), and +N relative syntax reads back
+        # garbage; always compute an absolute target from rtc0/since_epoch.
+        local rtc_before rtc_after wakeup_irq
+        rtc_before=$(cat /sys/class/rtc/rtc0/since_epoch)
         echo 0 > /sys/class/rtc/rtc0/wakealarm
-        echo $(( $(date +%s) + secs )) > /sys/class/rtc/rtc0/wakealarm || note "T: $name wakealarm refused"
+        echo $(( rtc_before + secs )) > /sys/class/rtc/rtc0/wakealarm || note "T: $name wakealarm refused"
         if ! echo freeze > /sys/power/state; then
             note "T: $name freeze entry refused"
         fi
+        rtc_after=$(cat /sys/class/rtc/rtc0/since_epoch)
+        wakeup_irq=$(cat /sys/power/pm_wakeup_irq 2>/dev/null || echo unknown)
+        note "T: $name resumed after $(( rtc_after - rtc_before ))s (pm_wakeup_irq=$wakeup_irq)"
     elif ! rtcwake -m freeze -s "$secs" >>"$DEST/console.log" 2>&1; then
         note "T: $name rtcwake FAILED (rc=$?)"
     fi
@@ -101,10 +107,14 @@ if [[ -n $USB_IF ]] && tc qdisc help 2>/dev/null | grep -q netem; then
     freeze_once t3-host-stalled 20
     tc qdisc del dev "$USB_IF" root
 elif [[ -n $USB_IF ]]; then
-    note "T3: netem qdisc unavailable in this kernel; stalling TX via link down"
-    ip link set "$USB_IF" down
-    freeze_once t3-host-stalled 20
-    ip link set "$USB_IF" up
+    if findmnt -n -o SOURCE / 2>/dev/null | grep -q '^/dev/nbd'; then
+        note "T3 skipped: rootfs is on NBD over $USB_IF and netem is unavailable; bringing $USB_IF down deadlocks userspace (test usb0-down in RAM rescue instead)"
+    else
+        note "T3: netem qdisc unavailable in this kernel; stalling TX via link down"
+        ip link set "$USB_IF" down
+        freeze_once t3-host-stalled 20
+        ip link set "$USB_IF" up
+    fi
 else
     note "T3 skipped: no gadget interface found"
 fi

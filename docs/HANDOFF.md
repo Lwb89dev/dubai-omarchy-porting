@@ -5,6 +5,36 @@ Questo documento è il punto di ingresso per chi riprende il lavoro (umano o
 agente). Stato rilevato il 2026-11-12 sera; leggere anche `PROCESS.md`
 (stato corrente) e `PROGRESS.md` (log completo).
 
+**Aggiornamento 2026-11-22:**
+- **M8 sbloccato sul wake PMIC:** 4 cicli `s2idle` reali in RAM rescue (6 s, 11 s con `usb0` giù, 11 s con UDC sganciato, 61 s) si sono svegliati tutti pulitamente su `IRQ 115` (`pm8xxx_rtc_alarm`, `suspend_stats/success=4`). I fallimenti del 12/11 erano dovuti a due bug combinati: offset di 56 anni tra `date +%s` (2026 via NTP) e `/sys/class/rtc/rtc0/since_epoch` (1970 hardware PMK8350), più deadlock NBD quando `usb0` veniva spento su rootfs NBD. Entrambi corretti in `scripts/device-suspend-tests.sh` (dettagli in `docs/SUSPEND.md`). Restano da verificare: pressione Power dentro la finestra `s2idle` e `qcom_stats/{aosd,cxsd}` a cavo USB scollegato.
+- **Boot freddo su `work/rootfs-dubai-2026.11.13-recovery.qcow2` riuscito:** batteria/carica ok (`89%`, `Charging`, `4.255 V`, UPower `2.03 W`), 5 sleep target `masked` e `CriticalPowerAction=PowerOff` verificati, Bluetooth acceso al boot, Wi-Fi, Hyprland, ModemManager, sensori (accel + luce + bussola viva `303°–312°`) e `omamobile-autorotate.service` tutti attivi al boot; unica unit fallita `plymouth-start.service`; tutte le 6 LUN UFS `ro=1`. Nota operativa: se `qemu-nbd` era stato avviato prima di uno spegnimento del rescue, eventuali connessioni TCP stantie saturano `--shared=2` e bloccano il nuovo `nbd-client` (riavviare `qemu-nbd` sblocca subito il boot).
+
+**Aggiornamento 2026-11-13:** dopo un'interruzione USB, il filesystem NBD è
+stato riparato su una copia e il watcher è predisposto per
+`work/rootfs-dubai-2026.11.13-recovery.qcow2`. L'ultimo boot temporaneo è stato
+seguito da un secondo boot riuscito sul rootfs di recupero. Linux segnalava
+batteria allo 0% e Discharging: è stato disposto uno spegnimento ordinato e,
+dopo la scomparsa USB, watcher e server NBD sono stati fermati. I controlli
+offline di qcow2 ed ext4 sono passati. Caricare il telefono esternamente prima
+di continuare; riavviare il watcher con `DUBAI_NBD_OVERLAY` sull'overlay di
+recupero prima del prossimo boot. Le letture batteria non sono state ancora
+confrontate con Android o con uno strumento esterno.
+Non modificare il backing file né fermare il server se il telefono lo usa.
+Il journal dell'avvio precedente registra una sospensione richiesta da UPower
+seguita dalla perdita della rete USB. Nell'immagine di recupero, mentre era
+offline, i target di sospensione sono stati mascherati e l'azione UPower per
+batteria critica è stata impostata su spegnimento; sono precauzioni NBD
+temporanee, ancora da verificare in esecuzione, non una correzione del wake.
+Nell'avvio precedente, firstboot, Hyprland, Wi-Fi e cattura dalle
+due fotocamere funzionano; i sensori sono visibili e l'autorotazione è attiva,
+ma rotazione e tocco non sono stati riconfermati visivamente su questo avvio.
+Il modem è stato avviato sperimentalmente con copie EFS sul rootfs NBD,
+senza scrivere sulle partizioni UFS, che restano in sola lettura. QMI riporta
+ancora `no-atr-received` su entrambe le sedi SIM. ModemManager non completa
+l'unlock. Dettagli e limiti nell'ultima sezione di `PROGRESS.md` e in
+`docs/TELEPHONY.md`. Le istruzioni che seguono descrivono lo stato precedente
+se non diversamente indicato.
+
 ## 1. Dove siamo
 
 - **Alpha 0/1/2 raggiunti sul dubai CSOT** (kernel mainline 7.2.9-dubai+,
@@ -56,6 +86,27 @@ agente). Stato rilevato il 2026-11-12 sera; leggere anche `PROCESS.md`
 
 ## 4. Da fare subito (ordine consigliato)
 
+**Aggiornamento sessione successiva:** i tre pacchetti sensori sono stati
+compilati e installati; `hexagonrpcd` passa 2 test. SSC risponde su QRTR ma
+il registro non diventa disponibile e `monitor-sensor` non trova sensori.
+Il daemon 0.4.0 rifiuta le scritture richieste dal firmware verso il registro
+virtuale. Il proxy è stato fermato dopo il test; vedere `PROCESS.md` per
+evidenze e prossima indagine. Non ripetere semplicemente la build/installazione.
+
+**Prova successiva:** un daemon sperimentale con registro scrivibile confinato
+ha prodotto misure SSC di luce e accelerazione; una regola udev temporanea ha
+reso visibile l'accelerometro al proxy, ma l'orientamento non è ancora
+verificato. Il daemon originale è stato ripristinato. Dettagli e limiti in
+`PROCESS.md`; il daemon sperimentale non è installato permanentemente.
+
+**Stato più recente:** il daemon sperimentale è ora installato sul rootfs NBD
+con copia persistente del registro e sandbox; dopo un avvio temporaneo completo
+il proxy segnala tilt e luce. Il client di rotazione è installato e attivo e
+il proprietario ha confermato che lo schermo ruota e che il tocco funziona
+dopo la richiesta di prova nei due orientamenti; avvii ripetuti restano da verificare.
+Vedere `docs/SENSORS.md` per limiti e ripristino; questa nota sostituisce lo
+stato di installazione riportato nei due paragrafi precedenti.
+
 ### 4.1 Stack sensori M11 (tutto pronto, manca solo build+install)
 
 Sul telefono (rootfs, utente `antona89` per makepkg, sudo per pacman):
@@ -89,8 +140,9 @@ magnetometro (mmc5603x), luce (stk3a5x).
 
 `docs/SUSPEND.md` ha fatti e prossimi passi. In sintesi: pwrkey e RTC hanno
 `power/wakeup: enabled` e l'IRQ RTC scatta a runtime, ma non svegliano il
-s2idle; il PDC non ha driver in questo albero e il DTS dubai non ha nodi
-pdc. Prossimi passi: (1) confrontare con pmOS su dubai (funziona lì?),
+s2idle. Correzione: il driver PDC è presente e abilitato; il DTS dubai lo
+eredita da kodiak e l'IRQ padre SPMI passa da PDC hwirq 1. Prossimi passi:
+(1) confrontare con pmOS su dubai (funziona lì?),
 (2) catturare lo stato IRQ in sospensione con pm_debug_messages,
 (3) esperimento irq-wake sul genitore spmi. **Non congelare senza una wake
 source funzionante**: solo poweroff forzato (Power 10 s) recupera.
@@ -114,9 +166,9 @@ registrazione → dati rmnet_ipa0 → SMS → chiamate → LOC GNSS).
 - **Verifica boot completo**: `systemctl is-system-running` (degraded con
   plymouth/uim/rmtfs attesi è OK). Se `pacman`/`systemctl` “not found” si
   è nel rescue, non nel rootfs.
-- **Wakealarm RTC**: usare tempo assoluto
-  (`echo $(( $(date +%s) + N )) > /sys/class/rtc/rtc0/wakealarm`); la
-  sintassi `+N` legge garbage. `rtcwake` segfaulta: usare sysfs.
+- **Wakealarm RTC**: usare tempo assoluto **da `/sys/class/rtc/rtc0/since_epoch`**
+  (`echo $(( $(cat /sys/class/rtc/rtc0/since_epoch) + N )) > /sys/class/rtc/rtc0/wakealarm`);
+  `$(date +%s)` su Arch NTP è nel 2026 mentre l'RTC PMK8350 resta nel 1970 (56 anni di scarto) e la sintassi `+N` legge garbage. `rtcwake` segfaulta: usare sysfs.
 - **Wi-Fi dopo boot**: se `wld0` manca: `modprobe ath11k_ahb`; se BDF -2:
   `rmmod ath11k_ahb`, bounce WPSS (`echo stop/start >
   /sys/class/remoteproc/remoteproc2/state`), `modprobe ath11k_ahb`.
