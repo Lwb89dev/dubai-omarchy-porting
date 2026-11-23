@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: MIT
 pkgname=omamobile-device-dubai
 pkgver=0.1.0
-pkgrel=11
+pkgrel=13
 pkgdesc="Omarchy Mobile hardware-independent userspace policy for Motorola Edge 30 (dubai)"
 arch=(aarch64)
 url="https://github.com/derekross/omarchy-mobile"
 license=(MIT)
-depends=(bash bluez systemd networkmanager openssh util-linux)
+depends=(bash bluez systemd networkmanager openssh util-linux zram-generator)
 optdepends=('linux-firmware-qcom: Qualcomm firmware already covered by linux-firmware licensing'
             'alsa-ucm-conf: base UCM infrastructure; dubai profile is packaged separately'
             'modemmanager: QMI/QRTR modem support enabled by the dubai modem target'
@@ -16,6 +16,8 @@ optdepends=('linux-firmware-qcom: Qualcomm firmware already covered by linux-fir
 
 package() {
   install -Dm644 "$startdir/device.conf" "$pkgdir/usr/share/omamobile/device.conf"
+  install -Dm644 "$startdir/10-dubai-storage.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/10-dubai-storage.rules"
   install -Dm644 "$startdir/81-libssc-motorola-dubai.rules" \
     "$pkgdir/usr/lib/udev/rules.d/81-libssc-motorola-dubai.rules"
   install -Dm644 "$startdir/70-dubai-dma-heaps.rules" \

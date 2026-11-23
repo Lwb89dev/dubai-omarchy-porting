@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# RAM-only Motorola dubai diagnostic init. Never mounts or writes storage.
+# Motorola dubai early init. Keeps every UFS disk/partition read-only unless
+# /etc/omamobile-ufs-rw explicitly allowlists userdata on sde.
 
 export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PS1='dubai-rescue# '
@@ -26,16 +27,63 @@ mount -t tmpfs tmpfs /run
 mkdir -p /run/diagnostics
 mount -t configfs configfs /sys/kernel/config 2>/dev/null || true
 
-# All UFS/SCSI disks and partitions stay read-only. There is no allowlist.
+# Fail-closed storage allowlist: only "userdata" on sde is ever permitted.
+UFS_RW=""
+if [ -s /etc/omamobile-ufs-rw ]; then
+    read -r ufs_rw_raw </etc/omamobile-ufs-rw
+    if [ "$ufs_rw_raw" = "userdata" ]; then
+        UFS_RW="userdata"
+        say "storage guard allowlist: userdata on sde (all other UFS partitions stay read-only)"
+    else
+        say "ignoring invalid /etc/omamobile-ufs-rw '$ufs_rw_raw'; keeping all storage read-only"
+    fi
+fi
+
+ufs_partname() {
+    sed -n 's/^PARTNAME=//p' "$1/uevent" 2>/dev/null
+}
+
 storage_ro_pass() {
-    local node
-    for node in /dev/sd[a-z] /dev/sd[a-z][0-9]*; do
-        [ -b "$node" ] || continue
-        blockdev --setro "$node" 2>/dev/null || say "FAILED to set $node read-only"
+    local s name part
+    for s in /sys/block/sd* /sys/block/sd*/sd*; do
+        [ -r "$s/ro" ] || continue
+        name=${s##*/}
+        [ -b "/dev/$name" ] || continue
+        if [ "$UFS_RW" = "userdata" ]; then
+            if [ "$name" = sde ]; then
+                rm -f /dev/sde
+                continue
+            fi
+            part=$(ufs_partname "$s")
+            if [ "${name%%[0-9]*}" = sde ] && [ "$part" = userdata ]; then
+                continue
+            fi
+        fi
+        blockdev --setro "/dev/$name" 2>/dev/null || say "FAILED to set /dev/$name read-only"
     done
 }
+
+ufs_unguarded() {
+    local s name part ro
+    for s in /sys/block/sd* /sys/block/sd*/sd*; do
+        [ -r "$s/ro" ] || continue
+        name=${s##*/}
+        if [ "$UFS_RW" = "userdata" ] && [ "$name" = sde ]; then
+            continue
+        fi
+        read -r ro <"$s/ro"
+        [ "$ro" = 0 ] || continue
+        part=$(ufs_partname "$s")
+        if [ "$UFS_RW" = "userdata" ] && [ "${name%%[0-9]*}" = sde ] && [ "$part" = userdata ]; then
+            continue
+        fi
+        echo "$name${part:+ ($part)}"
+    done
+}
+
 storage_ro_pass
 (while true; do storage_ro_pass; sleep 1; done) &
+storage_ro_loop_pid=$!
 
 hostname dubai-rescue
 board=$(tr '\0' '\n' </proc/device-tree/compatible 2>/dev/null | head -n 1)
@@ -94,6 +142,7 @@ setup_usb() {
     echo "$udc" >"$gadget/UDC" || return 1
     say "USB gadget bound to $udc"
 }
+console_loop_pid=""
 if setup_usb; then
     ip link set lo up
     for attempt in $(seq 1 10); do
@@ -114,6 +163,86 @@ if setup_usb; then
     console_loop_pid=$!
 fi
 
+grow_root() {
+    local dev=$1 info part_bytes fs_bytes blocks bsize
+    grep -qw omamobile.noresize /proc/cmdline && return 0
+    command -v dumpe2fs >/dev/null 2>&1 || return 0
+    command -v resize2fs >/dev/null 2>&1 || return 0
+    info=$(dumpe2fs -h "$dev" 2>/dev/null)
+    [ "$(echo "$info" | sed -n 's/^Filesystem volume name: *//p')" = omamobile-root ] || return 0
+    blocks=$(echo "$info" | sed -n 's/^Block count: *//p')
+    bsize=$(echo "$info" | sed -n 's/^Block size: *//p')
+    part_bytes=$(blockdev --getsize64 "$dev" 2>/dev/null)
+    [ -n "$blocks" ] && [ -n "$bsize" ] && [ -n "$part_bytes" ] || return 0
+    fs_bytes=$((blocks * bsize))
+    [ $((part_bytes - fs_bytes)) -gt 67108864 ] || return 0
+    say "growing ext4 root on $dev ($((fs_bytes >> 20)) MiB -> $((part_bytes >> 20)) MiB)"
+    e2fsck -f -p "$dev" >/dev/null 2>&1 || true
+    if resize2fs "$dev" >/run/resize2fs.log 2>&1; then
+        say "ext4 root grown on $dev"
+    else
+        say "resize2fs failed on $dev; continuing at current size"
+    fi
+}
+
+switch_to_newroot() {
+    local open
+    storage_ro_pass
+    open=$(ufs_unguarded)
+    if [ -n "$open" ]; then
+        say "ABORT switch_root: unguarded writable storage: $(echo "$open" | tr '\n' ' ')"
+        umount /newroot 2>/dev/null || true
+        return 1
+    fi
+    kill "$storage_ro_loop_pid" 2>/dev/null || true
+    killall dropbear 2>/dev/null || true
+    [ -n "$console_loop_pid" ] && kill "$console_loop_pid" 2>/dev/null || true
+    killall getty 2>/dev/null || true
+    exec switch_root /newroot /sbin/init
+}
+
+boot_userdata() {
+    grep -qw omamobile.initramfs /proc/cmdline && return 1
+    [ -s /etc/omamobile-root-device ] || return 1
+    read -r root_mode </etc/omamobile-root-device
+    [ "$root_mode" = "userdata" ] || return 1
+    [ "$UFS_RW" = "userdata" ] || { say "userdata boot requires UFS_RW=userdata"; return 1; }
+
+    local attempt s dev=""
+    for attempt in $(seq 1 20); do
+        for s in /sys/block/sde/sde*; do
+            [ -r "$s/uevent" ] || continue
+            if grep -qx 'PARTNAME=userdata' "$s/uevent" 2>/dev/null; then
+                dev="/dev/${s##*/}"
+                break
+            fi
+        done
+        [ -b "$dev" ] && break
+        dev=""
+        sleep 1
+    done
+    [ -b "$dev" ] || { say "userdata partition on sde not found"; return 1; }
+    [ "$(cat "/sys/block/sde/${dev#/dev/}/ro" 2>/dev/null)" = 0 ] || {
+        say "userdata ($dev) is read-only; refusing boot"
+        return 1
+    }
+    if command -v e2fsck >/dev/null 2>&1; then
+        e2fsck -p "$dev" >/dev/null 2>&1 || true
+    fi
+    grow_root "$dev"
+    mkdir -p /newroot
+    mount -t ext4 -o rw,relatime "$dev" /newroot || { say "cannot mount $dev"; return 1; }
+    if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/usr/lib/systemd/systemd ]; then
+        say "no init/systemd on $dev"
+        umount /newroot
+        return 1
+    fi
+    say "switching to Arch rootfs on internal $dev (userdata); all other UFS partitions remain read-only"
+    switch_to_newroot
+}
+
+boot_userdata || true
+
 if [ -s /etc/omamobile-nbd-server ]; then
     nbd_server=$(cat /etc/omamobile-nbd-server)
     modprobe nbd 2>/dev/null || say "module nbd not loaded"
@@ -132,10 +261,7 @@ if [ -s /etc/omamobile-nbd-server ]; then
     mkdir -p /newroot
     if $nbd_ready && mount /dev/nbd0 /newroot; then
         say "switching to Arch rootfs over USB NBD; internal storage remains read-only"
-        killall dropbear 2>/dev/null || true
-        kill "$console_loop_pid" 2>/dev/null || true
-        killall getty 2>/dev/null || true
-        exec switch_root /newroot /sbin/init
+        switch_to_newroot
     fi
     say "NBD root unavailable; remaining in diagnostic shell"
 fi

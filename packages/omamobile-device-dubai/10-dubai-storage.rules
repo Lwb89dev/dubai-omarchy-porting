@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: MIT
+# Keep desktop/udisks2 away from whole-disk sde and every non-userdata UFS partition.
+SUBSYSTEM=="block", KERNEL=="sde", MODE="0000", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", KERNEL=="sd[a-df][0-9]*", ENV{ID_PART_ENTRY_NAME}!="userdata", ENV{UDISKS_IGNORE}="1"

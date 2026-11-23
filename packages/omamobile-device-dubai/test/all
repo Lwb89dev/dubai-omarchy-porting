@@ -26,4 +26,7 @@ grep -q 'iio-sensor-proxy.service' omamobile-dubai-modem.target
 grep -q 'serial-getty@ttyGS0.service' PKGBUILD
 grep -q 'dubai-callaudiod' PKGBUILD
 grep -q 'dms-set-operating-mode=online' dubai-uim-selection
-echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, carries no storage allowlist, wants the sensor stack, wires call audio, and opens the gadget getty'
+grep -q 'zram-generator' PKGBUILD
+grep -q '10-dubai-storage.rules' PKGBUILD
+grep -q 'KERNEL=="sde", MODE="0000"' 10-dubai-storage.rules
+echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, protects non-userdata UFS partitions, wants the sensor stack, wires call audio, opens the gadget getty, and depends on zram-generator'

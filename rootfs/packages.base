@@ -9,6 +9,7 @@ iptables
 sddm
 e2fsprogs
 kmod
+zram-generator
 python
 polkit
 pciutils

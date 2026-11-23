@@ -11,7 +11,22 @@ ALPINE_SHA256=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
 TARBALL=$DOWNLOADS/alpine-minirootfs-$ALPINE_VERSION-aarch64.tar.gz
 SSH_PUBLIC_KEY=${SSH_PUBLIC_KEY:-}
 USB_NET_FUNCTION=${USB_NET_FUNCTION:-ncm}
+UFS_RW=${UFS_RW:-}
+ROOT_DEVICE=${ROOT_DEVICE:-}
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-1781088000}
+
+case "$UFS_RW" in
+    ""|userdata) ;;
+    *) echo "UFS_RW must be empty or 'userdata'" >&2; exit 2 ;;
+esac
+case "$ROOT_DEVICE" in
+    ""|userdata) ;;
+    *) echo "ROOT_DEVICE must be empty or 'userdata'" >&2; exit 2 ;;
+esac
+if [[ $ROOT_DEVICE == userdata && $UFS_RW != userdata ]]; then
+    echo "ROOT_DEVICE=userdata requires UFS_RW=userdata" >&2
+    exit 2
+fi
 
 mkdir -p "$OUT/logs" "$DOWNLOADS"
 exec > >(tee "$OUT/logs/build.log") 2>&1
@@ -25,8 +40,12 @@ echo "$ALPINE_SHA256  $TARBALL" | sha256sum -c --quiet
 rm -rf "$WORK"
 mkdir -p "$WORK/rootfs"
 tar -xzf "$TARBALL" -C "$WORK/rootfs"
+alpine_pkgs=(dropbear nbd-client)
+if [[ -n $UFS_RW ]]; then
+    alpine_pkgs+=(e2fsprogs e2fsprogs-extra)
+fi
 for package in $(python3 -I "$ROOT/sources/omarchy-mobile/tools/alpine-fetch.py" \
-    "$ALPINE_VERSION" "$DOWNLOADS/apks" dropbear nbd-client); do
+    "$ALPINE_VERSION" "$DOWNLOADS/apks" "${alpine_pkgs[@]}"); do
     tar -xzf "$package" -C "$WORK/rootfs" \
         --exclude='.PKGINFO' --exclude='.SIGN.*' --exclude='.*.sh' 2>/dev/null || true
 done
@@ -68,6 +87,12 @@ else
 fi
 if [[ -n ${NBD_SERVER:-} ]]; then
     printf '%s\n' "$NBD_SERVER" >"$WORK/rootfs/etc/omamobile-nbd-server"
+fi
+if [[ -n $UFS_RW ]]; then
+    printf '%s\n' "$UFS_RW" >"$WORK/rootfs/etc/omamobile-ufs-rw"
+fi
+if [[ -n $ROOT_DEVICE ]]; then
+    printf '%s\n' "$ROOT_DEVICE" >"$WORK/rootfs/etc/omamobile-root-device"
 fi
 case "$USB_NET_FUNCTION" in
     ncm|rndis) printf '%s\n' "$USB_NET_FUNCTION" >"$WORK/rootfs/etc/omamobile-usb-net-function" ;;
