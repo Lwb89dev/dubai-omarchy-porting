@@ -1,30 +1,50 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Dubai s2idle suspend analysis (M8)
 
-Updated 2026-11-22 after RAM-only rescue `s2idle` testing on the CI
+Updated 2026-11-23 after RAM-only rescue `s2idle` testing on the CI
 reference kernel (7.2.9-dubai+ #1, Landlock + PM_DEBUG).
 
 ## Confirmed facts (measured on hardware)
 
-1. **s2idle entry and resume are reliable.** Every freeze enters and exits
-   cleanly; uptime and the NBD link survive short sleeps.
-2. **PMIC RTC wakeup from sustained `s2idle` works (2026-11-22).** In the
-   RAM-only rescue initramfs (zero NBD traffic and zero NBD dependency),
-   four consecutive `s2idle` freezes entered and exited cleanly with
-   `suspend_stats/success=4, fail=0`:
-   - 6 s with `usb0` up (`pm_wakeup_irq=115`, `pm8xxx_rtc_alarm`),
-   - 11 s with `ip link set usb0 down` (`pm_wakeup_irq=115`),
-   - 11 s with UDC `a600000.usb` unbound (`pm_wakeup_irq=115`),
-   - 61 s control freeze (`pm_wakeup_irq=115`).
-   This proves the PMIC → `spmi_pmic_arb` → PDC (`hwirq 1`) → GICv3 wakeup
-   path is functional in mainline 7.2.9-dubai+.
-3. **Why the 2026-11-12 tests appeared to show broken PMIC wake (two
+1. **s2idle entry and resume are reliable.** Nine consecutive RAM-only
+   `s2idle` freezes across 2026-11-22 and 2026-11-23 entered and exited
+   cleanly with `suspend_stats/fail=0`.
+2. **PMIC RTC (`IRQ 115`) and PMIC Power-Key (`IRQ 116`) wakeups from
+   sustained `s2idle` both work (2026-11-22 & 2026-11-23).**
+   - **RTC alarm (`pm8xxx_rtc_alarm`, `IRQ 115`):** Seven RAM-only `s2idle`
+     freezes (6 s, 11 s `usb0` down, 11 s UDC unbound, 61 s, 121 s, and two
+     6 s tests with `fb0` blanked and `usb_role=none`) slept their full
+     programmed duration and woke cleanly with `pm_wakeup_irq=115`.
+   - **Power key (`pmic_pwrkey`, `IRQ 116`, 2026-11-23):** With a 300 s
+     `rtc0/since_epoch` safety fallback armed (`t1=959`, `alarm=1259`) and
+     `usb0` down, a physical Power button press woke the device cleanly
+     after **22 s** (`t2=981`, 278 s before the RTC fallback) with
+     `pm_wakeup_irq=116`, `PM: Triggering wakeup from IRQ 116`, and
+     `IRQ 116` incrementing `4 → 5, 1`. A second 30 s window also woke
+     after **3 s** on `pm_wakeup_irq=116` (`IRQ 116: 9,1 → 10,2`).
+   - This proves the full PMIC (`rtc` + `pon/pwrkey`) → `spmi_pmic_arb` →
+     PDC (`hwirq 1`, `IRQ 114`) → GICv3 wakeup chain is functional in
+     mainline `7.2.9-dubai+`.
+3. **PSCI OSI APSS cluster reaches its deepest state `S2`
+   (`cluster_sleep_llcc_off`, `0x4100b344`) on 100% of `s2idle` freezes
+   (2026-11-23).**
+   - `/sys/kernel/debug/pm_genpd/power-domain-cluster/idle_states`
+     (`18200000.rsc`) recorded:
+     - Runtime idle: `S0` (`cluster_sleep_apss_off`, `0x41000044`, 3,543
+       entries, 26.4 s) and `S1` (`cluster_sleep_cx_ret`, `0x41001344`,
+       34,056 entries, 749.0 s), with all 8 Kryo 670 cores using
+       `little-rail-power-down` / `big-rail-power-down` (`0x40000004`).
+     - System `s2idle`: **`S2` (`cluster_sleep_llcc_off`, `0x4100b344`)
+       entered 5 out of 5 times (`Usage: 5, Rejected: 0, S2idle: 5`)**,
+       confirming that `rpmh_rsc_pd_callback(GENPD_NOTIFY_PRE_OFF)` and
+       `rpmh_flush()` succeed without rejection on every `s2idle` freeze.
+4. **Why the 2026-11-12 tests appeared to show broken PMIC wake (two
    combined bugs, now root-caused):**
    - **PMK8350 RTC epoch mismatch:** `rtc-pm8xxx` keeps a raw hardware
-     epoch (`rtc0/since_epoch` ≈ 247k–248k, Jan 1970) while NTP on the Arch
-     rootfs advances `date +%s` to 2026 (`~1.795e9`). Writing
-     `$(date +%s) + N` to `/sys/class/rtc/rtc0/wakealarm` therefore armed
-     the hardware alarm **56 years in the future** so it never fired.
+     epoch (`rtc0/since_epoch`, Jan 1970) while NTP on the Arch rootfs
+     advances `date +%s` to 2026 (`~1.795e9`). Writing `$(date +%s) + N` to
+     `/sys/class/rtc/rtc0/wakealarm` therefore armed the hardware alarm
+     **56 years in the future** so it never fired.
      `scripts/device-suspend-tests.sh` now computes the target from
      `/sys/class/rtc/rtc0/since_epoch`.
    - **NBD transport deadlock on `usb0` down:** `T3` in
@@ -33,21 +53,26 @@ reference kernel (7.2.9-dubai+ #1, Landlock + PM_DEBUG).
      bringing `usb0` back up. Any userspace access to `/dev/nbd0` blocks in
      D-state once `usb0` is down, masking real kernel wakeups. `T3` now
      skips taking the interface down when `/` is backed by `/dev/nbd*`.
-4. **The premature ~0.6 s wake on NBD is active USB gadget traffic.** With
+5. **The premature ~0.6 s wake on NBD is active USB gadget traffic.** With
    NBD traffic active on `usb0`, the system wakes after 0.6–0.8 s. In RAM
-   rescue (idle `usb0`), it sleeps the full RTC duration without early USB
-   wakeups.
-5. **Deep SoC sleep (`qcom_stats/{aosd,cxsd}`) stayed 0 while USB was
-   physically plugged in.** Even with `a600000.usb` unbound, `dwc3-qcom`
-   logged `port-1 HS-PHY not in L2` and `aosd`/`cxsd`/`ddr` stayed `Count: 0`.
-6. **rtcwake(1) segfaults on this rootfs** (util-linux); the matrix script
+   rescue (idle or downed `usb0`), it sleeps the full programmed duration
+   without early USB wakeups.
+6. **Why `qcom_stats/{aosd,cxsd}` stayed 0 in RAM rescue while plugged in
+   (2026-11-23):**
+   - Blanking `fb0` (`echo 4 > /sys/class/graphics/fb0/blank`) suspends
+     `ae00000.display-subsystem`, `ae01000.display-controller`, and
+     `ae94000.dsi`, dropping their `256` performance vote on `cx` to `0`.
+   - However, while USB VBUS (`~4.98 V`) is physically connected,
+     `a600000.usb` (`dwc3-qcom`) stays `runtime_status=active` with a `256`
+     vote on `gcc_usb30_prim_gdsc` → `cx` even if `UDC` is unbound and
+     `usb_role` is set to `none`.
+   - In addition, the minimal RAM rescue initramfs does not boot the four
+     remoteproc DSPs (`adsp`, `cdsp`, `wpss`, `mpss`), so their SMEM
+     sleep-stat items (`605..631`) are unallocated (`qcom_stats/{adsp,cdsp,wpss,modem,apss}`
+     are empty).
+7. **rtcwake(1) segfaults on this rootfs** (util-linux); the matrix script
    programs the RTC alarm through sysfs (`rtc0/since_epoch + secs`) and
    enters freeze via `/sys/power/state` instead.
-7. **Power-key (`pmic_pwrkey`, IRQ 116) wake during active `s2idle` still
-   needs a timed confirmation.** IRQ 116 fires reliably at runtime (0 → 6 →
-   12 on short presses) and `power/wakeup` is `enabled`, but in the two
-   2026-11-22 RAM rescue attempts the press arrived just after the RTC
-   fallback expired.
 
 ## Working hypothesis
 
@@ -97,28 +122,24 @@ temporary probes were removed and `pm_test` returned to `none`.
 
 ## Consequences
 
-- **M8 is unblocked at the kernel/PDC wake layer**, but not yet closed for
-  daily-driver use:
-  - `pmic_pwrkey` wake from active `s2idle` still needs an explicit in-window
-    confirmation (now safe with a `since_epoch`-based RTC fallback).
-  - True deep SoC sleep (`qcom_stats/{aosd,cxsd}` > 0) and battery standby
-    drain must be measured with the USB cable physically unplugged (RAM-only
-    test script first, then persistent storage once qualified).
+- **M8 is proven at both the PMIC/PDC wake layer (`IRQ 115` RTC + `IRQ 116`
+  `pmic_pwrkey`) and the PSCI OSI APSS cluster `S2` (`cluster_sleep_llcc_off`)
+  layer**, with two remaining measurements before daily-driver enablement:
+  - Chip-wide `qcom_stats/{aosd,cxsd}` and subsystem DSP SMEM sleep stats
+    (`adsp`, `cdsp`, `wpss`, `modem`, `apss`) with all remoteprocs booted
+    and USB VBUS physically disconnected (`VBUS = 0 V`), plus standby drain.
   - On the NBD recovery rootfs, systemd sleep targets remain temporarily
     masked and UPower `CriticalPowerAction=PowerOff` stays set so NBD is
     not interrupted by an automatic suspend.
 
 ## Next diagnostic steps (in order)
 
-1. Confirm `pmic_pwrkey` (IRQ 116) wake in RAM rescue with a generous
-   `since_epoch` RTC fallback window (e.g. 180 s) so the press lands cleanly
-   inside `s2idle`.
-2. Run a RAM-only unplugged `s2idle` test (arm `since_epoch + 30`, unplug
-   USB cable, wait 35 s, reconnect USB) and inspect `qcom_stats/{aosd,cxsd}`,
-   `pm_genpd_summary`, and `pm_wakeup_irq` to determine whether unplugged
-   `s2idle` enters CXSD/AOSD and whether PMIC RTC/pwrkey wakes from deep
-   SoC sleep too.
-3. Measure battery standby drain once unplugged `s2idle` is verified.
+1. Run a RAM-only unplugged `s2idle` test (`VBUS < 1.5 V`, `fb0/blank=4`,
+   `since_epoch + 25` RTC alarm) and inspect `qcom_stats/{aosd,cxsd}`,
+   `pm_genpd_summary`, and `vbat_sns` delta across the unplugged window.
+2. On the full Arch/Omarchy rootfs (with `adsp`, `cdsp`, `wpss`, and `mpss`
+   booted), inspect `/sys/kernel/debug/qcom_stats/{adsp,cdsp,wpss,modem,apss}`
+   and measure battery standby drain once persistent storage replaces NBD.
 
 ## Operational notes for future sessions
 
