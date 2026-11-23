@@ -57,22 +57,32 @@ reference kernel (7.2.9-dubai+ #1, Landlock + PM_DEBUG).
    NBD traffic active on `usb0`, the system wakes after 0.6–0.8 s. In RAM
    rescue (idle or downed `usb0`), it sleeps the full programmed duration
    without early USB wakeups.
-6. **Why `qcom_stats/{aosd,cxsd}` stayed 0 in RAM rescue while plugged in
+6. **Why `qcom_stats/{aosd,cxsd}` stayed 0 in RAM rescue while plugged in and unplugged
    (2026-11-23):**
    - Blanking `fb0` (`echo 4 > /sys/class/graphics/fb0/blank`) suspends
      `ae00000.display-subsystem`, `ae01000.display-controller`, and
      `ae94000.dsi`, dropping their `256` performance vote on `cx` to `0`.
-   - However, while USB VBUS (`~4.98 V`) is physically connected,
-     `a600000.usb` (`dwc3-qcom`) stays `runtime_status=active` with a `256`
-     vote on `gcc_usb30_prim_gdsc` → `cx` even if `UDC` is unbound and
-     `usb_role` is set to `none`.
-   - In addition, the minimal RAM rescue initramfs does not boot the four
-     remoteproc DSPs (`adsp`, `cdsp`, `wpss`, `mpss`), so their SMEM
-     sleep-stat items (`605..631`) are unallocated (`qcom_stats/{adsp,cdsp,wpss,modem,apss}`
-     are empty).
+   - In RAM rescue (even when physically unplugged with `VBUS_BEFORE=0uV`
+     and `VBUS_AFTER=0uV`, `slept=26s`, `pm_wakeup_irq=115`, `S2` entered),
+     two blockers still keep `cx` on: (a) `qcom-rpmhpd` (`18200000.rsc:power-controller`)
+     retains `sync_state() pending` because `aa00000.video-codec` and the
+     four remoteprocs (`adsp`, `cdsp`, `wpss`, `mpss`) are unbooted in
+     initramfs, and (b) `a600000.usb` (`dwc3-qcom`) stays
+     `runtime_status=active` (`role=device`, `port-1 HS-PHY not in L2`,
+     vote `256` on `gcc_usb30_prim_gdsc` → `cx`).
+   - On the full Arch/Omarchy rootfs (`work/rootfs-dubai-2026.11.13-recovery.qcow2`),
+     all four remoteprocs (`modem`, `adsp`, `wpss`, `cdsp`) boot and
+     `qcom-rpmhpd` `sync_state()` is **no longer pending**; `qcom_stats`
+     confirms hardware sleep on `cdsp` (`Count: 120`), `modem` (`Count: 66`),
+     and `wpss` (`Count: 3`), while `adsp` remains `0` (PipeWire/sensors active)
+     and `a600000.usb` (`256`, NBD) + `99c000.serial` (`128`, BT UART7) hold
+     `cx` active while USB NBD is connected.
 7. **rtcwake(1) segfaults on this rootfs** (util-linux); the matrix script
    programs the RTC alarm through sysfs (`rtc0/since_epoch + secs`) and
-   enters freeze via `/sys/power/state` instead.
+   enters freeze via `/sys/power/state` instead. Upstream `omamobile-sleepd`
+   is present on the rootfs (`omarchy-toggle omamobile-sleep on/off`) and
+   automatically inhibits sleep while an SSH session is open, `Stay awake`
+   is enabled, or a PipeWire sink is running.
 
 ## Working hypothesis
 

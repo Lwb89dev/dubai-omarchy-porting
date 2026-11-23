@@ -58,3 +58,13 @@ again. The prior four device configuration files were archived at
 `/var/tmp/dubai-sensor-config-before-20261112.tar.gz`; do not restore them
 blindly because the old setup reads Android `persist`. The new Linux-only
 registry is retained for diagnosis and is not part of the Android partition.
+
+2026-11-23 confinement re-audit on `work/rootfs-dubai-2026.11.13-recovery.qcow2`:
+confirmed `/mnt/vendor/persist` is not mounted, `/var/lib/dubai-hexagonrpc`
+contains zero symlinks with `root:root` ownership on parent directories and
+`fastrpc:fastrpc` limited to `sensors/persist`, and `hexagonrpcd-adsp-sensorspd.service`
+runs with `User=fastrpc`, `Group=fastrpc`, `ProtectSystem=strict`,
+`ProtectHome=yes`, `NoNewPrivileges=yes`, and
+`ReadWritePaths=/var/lib/dubai-hexagonrpc/sensors/persist`. Live
+`monitor-sensor` output after cold boot reported `263.33 lux`, `face-down`
+tilt, and live compass headings (`268.9°–355.4°`).
