@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Dubai s2idle suspend analysis (M8)
 
-Updated 2026-11-23 after RAM-only rescue `s2idle` testing on the CI
+Updated 2026-11-24 after full-rootfs unplugged `s2idle` testing on `/dev/sde27` and CI
 reference kernel (7.2.9-dubai+ #1, Landlock + PM_DEBUG).
 
 ## Confirmed facts (measured on hardware)
@@ -132,24 +132,40 @@ temporary probes were removed and `pm_test` returned to `none`.
 
 ## Consequences
 
-- **M8 is proven at both the PMIC/PDC wake layer (`IRQ 115` RTC + `IRQ 116`
-  `pmic_pwrkey`) and the PSCI OSI APSS cluster `S2` (`cluster_sleep_llcc_off`)
-  layer**, with two remaining measurements before daily-driver enablement:
-  - Chip-wide `qcom_stats/{aosd,cxsd}` and subsystem DSP SMEM sleep stats
-    (`adsp`, `cdsp`, `wpss`, `modem`, `apss`) with all remoteprocs booted
-    and USB VBUS physically disconnected (`VBUS = 0 V`), plus standby drain.
-  - On the NBD recovery rootfs, systemd sleep targets remain temporarily
-    masked and UPower `CriticalPowerAction=PowerOff` stays set so NBD is
-    not interrupted by an automatic suspend.
+- **M8 is proven at the PMIC/PDC wake layer (`IRQ 115` RTC + `IRQ 116`
+  `pmic_pwrkey`), the PSCI OSI APSS cluster `S2` (`cluster_sleep_llcc_off`)
+  layer, and full-rootfs `/dev/sde27` unplugged `s2idle` (46 s, `cdsp` +
+  `modem` sleeping 100% of the freeze)**, with the following blockers/actions
+  remaining before daily-driver enablement:
+  - **Bluetooth UART7 wakeup (`IRQ 151`):** `99c000.serial/power/wakeup`
+    (`msmgpio 31 Edge`) defaults to `enabled` and wakes `s2idle` in `0 s`;
+    disabling it persistently via udev (and verifying BT operation after
+    resume) is required before enabling `omamobile-sleepd`.
+  - **Chip-wide `aosd`/`cxsd` and subsystem isolation:** during the 46 s
+    unplugged `/dev/sde27` freeze (`VBUS=0uV`, `fb0/blank=4`), `adsp` and
+    `wpss` stayed active (`0` sleep count), holding `aosd`/`cxsd` at `0`.
+    Isolate sensors/PipeWire (`adsp`) and Wi-Fi (`wpss`) to measure `aosd`,
+    `cxsd`, and real standby power drain.
+  - **UPower / `qcom-battmgr` SOC hazard:** on 2026-11-24 `qcom-battmgr-bat`
+    reported `capacity=2` (`voltage_ocv=3.460–3.688 V`) despite
+    `vbat_sns=4.10–4.23 V`, causing `upowerd` (`CriticalPowerAction=PowerOff`)
+    to shut down the device on unplug, and `current_now` stayed positive
+    (`+224 mA -> +41.8 mA`) while `status=Discharging`. Keep `sleep.target`
+    masked until UPower critical-power safety and `99c000.serial` wakeup
+    are resolved.
 
 ## Next diagnostic steps (in order)
 
-1. Run a RAM-only unplugged `s2idle` test (`VBUS < 1.5 V`, `fb0/blank=4`,
-   `since_epoch + 25` RTC alarm) and inspect `qcom_stats/{aosd,cxsd}`,
-   `pm_genpd_summary`, and `vbat_sns` delta across the unplugged window.
-2. On the full Arch/Omarchy rootfs (with `adsp`, `cdsp`, `wpss`, and `mpss`
-   booted), inspect `/sys/kernel/debug/qcom_stats/{adsp,cdsp,wpss,modem,apss}`
-   and measure battery standby drain once persistent storage replaces NBD.
+1. Package `99c000.serial/power/wakeup=disabled` (udev rule in
+   `omamobile-device-dubai`) and verify Bluetooth audio/scanning still works
+   after an `s2idle` resume.
+2. On `/dev/sde27` (via Wi-Fi SSH, with `upower.service` runtime-masked),
+   isolate `adsp` (`iio-sensor-proxy`/`hexagonrpcd`) and `wpss` (`wld0` down
+   during freeze, restored after) to confirm whether `qcom_stats/{aosd,cxsd}`
+   increment and measure true standby current/voltage drain.
+3. Diagnose why `qcom-battmgr-bat` reported `capacity=2%` at `4.10–4.23 V`
+   and positive `current_now` in `Discharging`, then unmask systemd sleep
+   targets and validate `omamobile-sleepd`.
 
 ## Operational notes for future sessions
 
