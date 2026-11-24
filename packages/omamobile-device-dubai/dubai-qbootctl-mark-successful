@@ -1,0 +1,92 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Safely mark the currently booted Qualcomm A/B slot successful via qbootctl.
+# Only temporarily unlocks the two A/B metadata LUNs (/dev/sdd and /dev/sdf),
+# keeping /dev/sde (userdata/Android super/persist) strictly untouched/read-only.
+set -euo pipefail
+
+DRY_RUN=0
+case "${1:-}" in
+  "") ;;
+  --check|--dry-run) DRY_RUN=1 ;;
+  -h|--help)
+    echo "Usage: $(basename "$0") [--check|--dry-run]"
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    exit 2
+    ;;
+esac
+
+[[ $EUID -eq 0 ]] || { echo "Run as root" >&2; exit 2; }
+command -v qbootctl >/dev/null || { echo "qbootctl not installed" >&2; exit 1; }
+
+root_src=$(findmnt -n -o SOURCE /)
+root_real=$(readlink -f "$root_src")
+root_dev=${root_real#/dev/}
+[[ -r "/sys/class/block/$root_dev/uevent" ]] &&
+  grep -qx 'PARTNAME=userdata' "/sys/class/block/$root_dev/uevent" || {
+  echo "Refusing to mark slot outside persistent userdata root ($root_src)" >&2
+  exit 1
+}
+
+disk_a=$(lsblk -no PKNAME /dev/disk/by-partlabel/boot_a)
+disk_b=$(lsblk -no PKNAME /dev/disk/by-partlabel/boot_b)
+[[ -n $disk_a && -n $disk_b ]] || { echo "Missing boot_a/boot_b parent LUN" >&2; exit 1; }
+[[ $disk_a != "sde" && $disk_b != "sde" ]] || {
+  echo "Refusing to touch LUN hosting userdata (/dev/sde)" >&2
+  exit 1
+}
+lun_a="/dev/$disk_a"
+lun_b="/dev/$disk_b"
+[[ -b $lun_a && -b $lun_b ]] || { echo "Invalid LUN block device" >&2; exit 1; }
+
+if [[ -b /dev/sde ]]; then
+  sde_ro=$(blockdev --getro /dev/sde)
+  [[ $sde_ro == 1 ]] || {
+    echo "Expected whole-disk /dev/sde to be read-only (got $sde_ro)" >&2
+    exit 1
+  }
+fi
+
+slot_line=$(qbootctl -c)
+case "$slot_line" in
+  "Current slot: _a") slot=a ;;
+  "Current slot: _b") slot=b ;;
+  *)
+    echo "Unexpected qbootctl -c output: $slot_line" >&2
+    exit 1
+    ;;
+esac
+
+bootable_line=$(qbootctl -b "$slot")
+[[ $bootable_line == *"is marked bootable"* ]] || {
+  echo "Slot _$slot is not marked bootable: $bootable_line" >&2
+  exit 1
+}
+
+succ_line=$(qbootctl -n "$slot")
+if [[ $succ_line == *"is marked successful"* ]]; then
+  echo "SLOT _$slot: already marked successful"
+  exit 0
+fi
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  echo "SLOT _$slot: ready to mark successful via $lun_a and $lun_b (dry-run)"
+  exit 0
+fi
+
+restore_ro() {
+  blockdev --setro "$lun_a" "$lun_b" 2>/dev/null || true
+}
+trap restore_ro EXIT
+
+blockdev --setrw "$lun_a" "$lun_b"
+qbootctl -m
+restore_ro
+trap - EXIT
+
+verify_line=$(qbootctl -n "$slot")
+echo "$verify_line"
+[[ $verify_line == *"is marked successful"* ]]

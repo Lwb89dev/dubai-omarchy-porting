@@ -1,2 +1,5 @@
 # SPDX-License-Identifier: MIT
 ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", TAG+="systemd", ENV{SYSTEMD_WANTS}="omamobile-dubai-bluetooth-address@%k.service"
+# Disable Bluetooth UART7 wakeup: IRQ 151 (99c000.serial:wakeup, msmgpio 31)
+# triggers immediate 0 s s2idle wakeups.
+ACTION=="add|bind|change", SUBSYSTEM=="platform", KERNEL=="99c000.serial", DRIVER=="qcom_geni_serial", TEST=="power/wakeup", ATTR{power/wakeup}="disabled"

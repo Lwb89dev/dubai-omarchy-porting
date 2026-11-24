@@ -2,15 +2,20 @@
 pkgbase=libcamera
 pkgname=(libcamera libcamera-ipa)
 pkgver=0.7.2
-pkgrel=4.24
+pkgrel=4.25
 pkgdesc="A complex camera support library for Linux, with dubai sensor helpers"
 arch=(aarch64)
 url="https://libcamera.org/"
 license=(LGPL-2.1-or-later)
 makedepends=(cmake git libdrm libelf libglvnd libpisp libunwind libyaml libyuv meson python-jinja python-ply python-yaml systemd)
 source=("git+https://git.libcamera.org/libcamera/libcamera.git#tag=v$pkgver"
-        dubai-sensor-helpers.patch)
-sha256sums=(SKIP 7d516c43b1bf773f5cd4ccb9480b903470f77a8ea1d2cad447485b02c6c25935)
+        dubai-sensor-helpers.patch
+        0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
+        s5kjn1.yaml)
+sha256sums=(SKIP
+            7d516c43b1bf773f5cd4ccb9480b903470f77a8ea1d2cad447485b02c6c25935
+            1095725bbb3d8e4571be2d2d193727b3de9f97f1fe9b96953e03d8639cd6b7ba
+            85e2a8e694c825f741acb25d336c058011e56434b56715e57305206f38ca8cbd)
 
 _pick() {
     local p="$1" f d
@@ -26,6 +31,7 @@ _pick() {
 prepare() {
     cd "$pkgbase"
     patch -Np1 <../dubai-sensor-helpers.patch
+    patch -Np1 <../0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
     printf '%s\n' "$pkgver" >.tarball-version
 }
 
@@ -58,6 +64,7 @@ package_libcamera() {
     provides=(libcamera.so libcamera-base.so)
 
     meson install -C build --destdir "$pkgdir"
+    install -Dm644 s5kjn1.yaml "$pkgdir/usr/share/libcamera/ipa/simple/s5kjn1.yaml"
     install -Dm644 "$pkgbase/LICENSES/BSD-3-Clause.txt" \
         "$pkgdir/usr/share/licenses/$pkgname/BSD-3-Clause.txt"
     install -Dm644 "$pkgbase/LICENSES/Linux-syscall-note.txt" \

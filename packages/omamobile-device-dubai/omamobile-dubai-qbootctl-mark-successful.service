@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+# Optional oneshot unit to mark the booted A/B slot successful after flashing
+# boot_b. Not enabled until a standalone boot_b image is flashed and verified.
+[Unit]
+Description=Mark active Qualcomm A/B boot slot successful on dubai
+DefaultDependencies=no
+After=local-fs.target
+ConditionPathExists=/dev/disk/by-partlabel/boot_a
+ConditionPathExists=/dev/disk/by-partlabel/boot_b
+ConditionPathExists=/usr/bin/qbootctl
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/omamobile/dubai-qbootctl-mark-successful
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

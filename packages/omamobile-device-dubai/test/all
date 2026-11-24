@@ -20,6 +20,7 @@ grep -q 'public-addr' dubai-bluetooth-address
 grep -q 'power on' dubai-bluetooth-address
 grep -q 'attempt < 30' dubai-bluetooth-address
 grep -q 'omamobile-dubai-bluetooth-address@%k.service' 75-dubai-bluetooth.rules
+grep -q 'KERNEL=="99c000.serial".*ATTR{power/wakeup}="disabled"' 75-dubai-bluetooth.rules
 grep -q 'ExecStart=/usr/lib/omamobile/dubai-bluetooth-address %i' omamobile-dubai-bluetooth-address@.service
 grep -q 'hexagonrpcd-adsp-sensorspd.service' omamobile-dubai-modem.target
 grep -q 'iio-sensor-proxy.service' omamobile-dubai-modem.target
@@ -29,4 +30,13 @@ grep -q 'dms-set-operating-mode=online' dubai-uim-selection
 grep -q 'zram-generator' PKGBUILD
 grep -q '10-dubai-storage.rules' PKGBUILD
 grep -q 'KERNEL=="sde", MODE="0000"' 10-dubai-storage.rules
-echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, protects non-userdata UFS partitions, wants the sensor stack, wires call audio, opens the gadget getty, and depends on zram-generator'
+grep -q '90-dubai-battery.conf' PKGBUILD
+grep -qx 'UsePercentageForPolicy=false' 90-dubai-battery.conf
+bash -n dubai-qbootctl-mark-successful
+grep -q 'dubai-qbootctl-mark-successful' PKGBUILD
+grep -q 'omamobile-dubai-qbootctl-mark-successful.service' PKGBUILD
+grep -q 'blockdev --setro "\$lun_a" "\$lun_b"' dubai-qbootctl-mark-successful
+grep -q '\[ \$disk_a != "sde" && \$disk_b != "sde" \]' dubai-qbootctl-mark-successful || grep -Fq '$disk_a != "sde"' dubai-qbootctl-mark-successful
+! grep -q 'enable.*omamobile-dubai-qbootctl-mark-successful' PKGBUILD
+! grep -q 'omamobile-dubai-qbootctl-mark-successful.service' PKGBUILD || ! grep -q 'wants/omamobile-dubai-qbootctl-mark-successful.service' PKGBUILD
+echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, protects non-userdata UFS partitions, wants the sensor stack, wires call audio, opens the gadget getty, guards A/B slot marking, and depends on zram-generator'
