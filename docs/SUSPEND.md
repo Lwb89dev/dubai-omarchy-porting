@@ -138,34 +138,41 @@ temporary probes were removed and `pm_test` returned to `none`.
   `modem` sleeping 100% of the freeze)**, with the following blockers/actions
   remaining before daily-driver enablement:
   - **Bluetooth UART7 wakeup (`IRQ 151`):** `99c000.serial/power/wakeup`
-    (`msmgpio 31 Edge`) defaults to `enabled` and wakes `s2idle` in `0 s`;
-    disabling it persistently via udev (and verifying BT operation after
-    resume) is required before enabling `omamobile-sleepd`.
-  - **Chip-wide `aosd`/`cxsd` and subsystem isolation:** during the 46 s
-    unplugged `/dev/sde27` freeze (`VBUS=0uV`, `fb0/blank=4`), `adsp` and
-    `wpss` stayed active (`0` sleep count), holding `aosd`/`cxsd` at `0`.
-    Isolate sensors/PipeWire (`adsp`) and Wi-Fi (`wpss`) to measure `aosd`,
-    `cxsd`, and real standby power drain.
-  - **UPower / `qcom-battmgr` SOC hazard:** on 2026-11-24 `qcom-battmgr-bat`
-    reported `capacity=2` (`voltage_ocv=3.460–3.688 V`) despite
-    `vbat_sns=4.10–4.23 V`, causing `upowerd` (`CriticalPowerAction=PowerOff`)
-    to shut down the device on unplug, and `current_now` stayed positive
-    (`+224 mA -> +41.8 mA`) while `status=Discharging`. Keep `sleep.target`
-    masked until UPower critical-power safety and `99c000.serial` wakeup
-    are resolved.
+    (`msmgpio 31 Edge`) defaults to `enabled` and woke `s2idle` in `0 s`;
+    disabling it persistently is now packaged in
+    `omamobile-device-dubai 0.1.0-14` (`75-dubai-bluetooth.rules`), verified at
+    cold boot with `bluetoothctl scan on` passing both before and after
+    `s2idle` resume.
+  - **ADSP/WPSS/USB isolation & chip-wide `aosd`/`cxsd`:**
+    - `private-capture/2026-11-24/sde27-step2-isolated.log`: 31 s unplugged
+      (`VBUS=0uV`) with `iio-sensor-proxy`, `hexagonrpcd`, and PipeWire stopped
+      -> `slept=31s`, `pm_wakeup_irq=115`, `S2` `Usage: 1, Rejected: 0`,
+      `cdsp`/`modem` ~30.8 s, `adsp`/`wpss`/`aosd`/`cxsd` = `0`.
+    - `private-capture/2026-11-24/sde27-step2b-ath-usb.log`: 16 s unplugged
+      with `a600000.usb/power/control=auto` (`suspended`, `cx` vote `0`),
+      `rmmod ath11k_ahb` (`wpss` `11 -> 13` on unload, stayed `13` in freeze),
+      and sensors/PipeWire stopped -> `slept=16s`, `pm_wakeup_irq=115`,
+      `S2` `Usage: 2`, `cdsp`/`modem` +15.74 s, standby `current_now` dropped to
+      `34485` uA at `4.293 V`; `adsp`, `aosd`, and `cxsd` stayed `0` (ADSP and
+      `cx` remain voted active by audio/`pmic_glink` and `99c000.serial`).
+    - Leaving `a600000.usb/power/control=auto` blocks USB re-enumeration on
+      cable replug (keep `on` default); Hyprland 0.57 requires
+      `hyprctl eval 'hl.dsp.dpms("on")'` after blanking.
+  - **UPower / `qcom-battmgr` SOC hazard & `0006` removal:** raw ADSP
+    `BATT_CURR_NOW` already uses Linux sign (`0006` caused `Discharging` to
+    read positive). Removed `kernel/patches/0006-qcom-battmgr-sm7325-current-sign.patch`
+    (pending CI kernel rebuild) and packaged `90-dubai-battery.conf`
+    (`UsePercentageForPolicy=false`) in `omamobile-device-dubai 0.1.0-15`, so
+    `upower -d` reports `warning-level: none` while `time_to_empty > 0`
+    even when off-mode/fastboot charging leaves QBG `capacity=2%`.
 
 ## Next diagnostic steps (in order)
 
-1. Package `99c000.serial/power/wakeup=disabled` (udev rule in
-   `omamobile-device-dubai`) and verify Bluetooth audio/scanning still works
-   after an `s2idle` resume.
-2. On `/dev/sde27` (via Wi-Fi SSH, with `upower.service` runtime-masked),
-   isolate `adsp` (`iio-sensor-proxy`/`hexagonrpcd`) and `wpss` (`wld0` down
-   during freeze, restored after) to confirm whether `qcom_stats/{aosd,cxsd}`
-   increment and measure true standby current/voltage drain.
-3. Diagnose why `qcom-battmgr-bat` reported `capacity=2%` at `4.10–4.23 V`
-   and positive `current_now` in `Discharging`, then unmask systemd sleep
-   targets and validate `omamobile-sleepd`.
+1. Push/rebuild the kernel without patch `0006` and verify `qcom-battmgr-bat`
+   negative discharge current on the phone before unmasking `sleep.target` and
+   enabling `omamobile-sleepd`.
+2. Investigate what keeps `adsp` and `99c000.serial` (`cx` vote `128`) awake
+   during freeze so `aosd` and `cxsd` can enter deep chip sleep.
 
 ## Operational notes for future sessions
 

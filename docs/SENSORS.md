@@ -67,4 +67,9 @@ runs with `User=fastrpc`, `Group=fastrpc`, `ProtectSystem=strict`,
 `ProtectHome=yes`, `NoNewPrivileges=yes`, and
 `ReadWritePaths=/var/lib/dubai-hexagonrpc/sensors/persist`. Live
 `monitor-sensor` output after cold boot reported `263.33 lux`, `face-down`
-tilt, and live compass headings (`268.9°–355.4°`).
+tilt, and live compass headings (`268.9°–355.4°`). On 2026-11-24 `/dev/sde27`,
+`omamobile-autorotate` remained `active` and `monitor-sensor` reported
+`241.38 lux`, `270.8°–271.0°`, and `tilt: face-down` while the phone was lying
+screen-up (`-1, 0, 0; 0, -1, 0; 0, 0, -1` in `81-libssc-motorola-dubai.rules`
+inverts Z; left unchanged pending owner confirmation of portrait/landscape
+axes).

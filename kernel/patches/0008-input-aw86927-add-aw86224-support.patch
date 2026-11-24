@@ -1,0 +1,431 @@
+Subject: [PATCH] input: aw86927: add AW86224 LRA haptic support
+
+Add support for the Awinic AW86224 non-boost LRA haptic controller used on
+Motorola Edge 30 (dubai), which shares the core SRAM/WAVCFG/PLAYCFG2-4/SYSINT
+layout with AW86927 while differing in chip ID (0x00 + EFRD9 0x64), SYSCTRL/
+PWMCFG register offsets, and omission of boost-converter registers.
+---
+diff --git i/drivers/input/misc/aw86927.c w/drivers/input/misc/aw86927.c
+index f53b8f004..7a922e277 100644
+--- i/drivers/input/misc/aw86927.c
++++ w/drivers/input/misc/aw86927.c
+@@ -14,6 +14,7 @@
+ #include <linux/i2c.h>
+ #include <linux/input.h>
+ #include <linux/module.h>
++#include <linux/of.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/types.h>
+@@ -55,6 +56,7 @@
+ #define AW86927_PLAYCFG3_AUTO_BST_MASK		GENMASK(4, 4)
+ #define AW86927_PLAYCFG3_AUTO_BST_ENABLE	1
+ #define AW86927_PLAYCFG3_AUTO_BST_DISABLE	0
++#define AW86224_PLAYCFG3_BRK_EN_MASK		GENMASK(2, 2)
+ #define AW86927_PLAYCFG3_PLAY_MODE_MASK		GENMASK(1, 0)
+ #define AW86927_PLAYCFG3_PLAY_MODE_RAM		0
+ 
+@@ -175,6 +177,38 @@
+ #define AW86927_BASEADDRH_VAL			0x08
+ #define AW86927_BASEADDRL_VAL			0x00
+ 
++/* AW86224 register differences (non-boost LRA driver) */
++#define AW86224_CHIPID_REG			0x00
++#define AW86224_CHIPID				0x00
++#define AW86224_EFRD9_REG			0x64
++#define AW86224_EFRD9_MASK			(BIT(6) | BIT(0))
++#define AW86224_EFRD9_ID			0x00
++
++#define AW86224_RTPCFG1_SRAM_3K			(BIT(5) | BIT(4))
++
++#define AW86224_SYSCTRL1_REG			0x43
++#define AW86224_SYSCTRL1_VBAT_MODE_MASK		GENMASK(7, 7)
++#define AW86224_SYSCTRL1_RAMINIT_MASK		GENMASK(3, 3)
++
++#define AW86224_SYSCTRL2_REG			0x44
++#define AW86224_SYSCTRL2_STANDBY_MASK		GENMASK(6, 6)
++#define AW86224_SYSCTRL2_INTN_PIN_MASK		GENMASK(3, 3)
++#define AW86224_SYSCTRL2_WAVDAT_MODE_MASK	GENMASK(1, 0)
++
++#define AW86224_SYSCTRL7_REG			0x49
++#define AW86224_SYSCTRL7_GAIN_BYPASS_MASK	GENMASK(6, 6)
++#define AW86224_SYSCTRL7_INT_EDGE_MODE_MASK	GENMASK(5, 5)
++#define AW86224_SYSCTRL7_INT_MODE_MASK		GENMASK(4, 4)
++#define AW86224_SYSCTRL7_D2S_GAIN_MASK		GENMASK(2, 0)
++#define AW86224_SYSCTRL7_D2S_GAIN_10		5
++
++#define AW86224_PWMCFG1_REG			0x4c
++#define AW86224_PWMCFG3_REG			0x4e
++#define AW86224_PWMCFG4_REG			0x4f
++
++#define AW86224_ANACFG8_REG			0x77
++#define AW86224_ANACFG8_TRTF_HDRV_MASK		GENMASK(7, 6)
++
+ enum aw86927_work_mode {
+ 	AW86927_STANDBY_MODE,
+ 	AW86927_RAM_MODE,
+@@ -183,6 +217,7 @@ enum aw86927_work_mode {
+ enum aw86927_model {
+ 	AW86927,
+ 	AW86938,
++	AW86224,
+ };
+ 
+ struct aw86927_data {
+@@ -254,24 +289,25 @@ static int aw86927_wait_enter_standby(struct aw86927_data *haptics)
+ 
+ static int aw86927_play_mode(struct aw86927_data *haptics, u8 play_mode)
+ {
++	unsigned int standby_reg = AW86927_SYSCTRL3_REG;
++	unsigned int standby_mask = AW86927_SYSCTRL3_STANDBY_MASK;
+ 	int err;
+ 
++	if (haptics->model == AW86224) {
++		standby_reg = AW86224_SYSCTRL2_REG;
++		standby_mask = AW86224_SYSCTRL2_STANDBY_MASK;
++	}
++
+ 	switch (play_mode) {
+ 	case AW86927_STANDBY_MODE:
+ 		/* Briefly toggle standby, then toggle back to standby off */
+-		err = regmap_update_bits(haptics->regmap,
+-					 AW86927_SYSCTRL3_REG,
+-					 AW86927_SYSCTRL3_STANDBY_MASK,
+-					 FIELD_PREP(AW86927_SYSCTRL3_STANDBY_MASK,
+-						    AW86927_SYSCTRL3_STANDBY_ON));
++		err = regmap_update_bits(haptics->regmap, standby_reg,
++					 standby_mask, standby_mask);
+ 		if (err)
+ 			return err;
+ 
+-		err = regmap_update_bits(haptics->regmap,
+-					 AW86927_SYSCTRL3_REG,
+-					 AW86927_SYSCTRL3_STANDBY_MASK,
+-					 FIELD_PREP(AW86927_SYSCTRL3_STANDBY_MASK,
+-						    AW86927_SYSCTRL3_STANDBY_OFF));
++		err = regmap_update_bits(haptics->regmap, standby_reg,
++					 standby_mask, 0);
+ 		if (err)
+ 			return err;
+ 
+@@ -286,6 +322,15 @@ static int aw86927_play_mode(struct aw86927_data *haptics, u8 play_mode)
+ 		if (err)
+ 			return err;
+ 
++		if (haptics->model == AW86224) {
++			err = regmap_update_bits(haptics->regmap,
++						 AW86224_SYSCTRL1_REG,
++						 AW86224_SYSCTRL1_VBAT_MODE_MASK, 0);
++			if (err)
++				return err;
++			break;
++		}
++
+ 		err = regmap_update_bits(haptics->regmap,
+ 					 AW86927_PLAYCFG1_REG,
+ 					 AW86927_PLAYCFG1_BST_MODE_MASK,
+@@ -361,12 +406,14 @@ static int aw86927_play_sine(struct aw86927_data *haptics)
+ 	if (err)
+ 		return err;
+ 
+-	err = regmap_update_bits(haptics->regmap, AW86927_PLAYCFG3_REG,
+-				 AW86927_PLAYCFG3_AUTO_BST_MASK,
+-				 FIELD_PREP(AW86927_PLAYCFG3_AUTO_BST_MASK,
+-					    AW86927_PLAYCFG3_AUTO_BST_ENABLE));
+-	if (err)
+-		return err;
++	if (haptics->model != AW86224) {
++		err = regmap_update_bits(haptics->regmap, AW86927_PLAYCFG3_REG,
++					 AW86927_PLAYCFG3_AUTO_BST_MASK,
++					 FIELD_PREP(AW86927_PLAYCFG3_AUTO_BST_MASK,
++						    AW86927_PLAYCFG3_AUTO_BST_ENABLE));
++		if (err)
++			return err;
++	}
+ 
+ 	/* Set waveseq 1 to the first wave */
+ 	err = regmap_update_bits(haptics->regmap, AW86927_WAVCFG1_REG,
+@@ -443,10 +490,79 @@ static void aw86927_hw_reset(struct aw86927_data *haptics)
+ 	usleep_range(8000, 8500);
+ }
+ 
++static int aw86224_haptic_init(struct aw86927_data *haptics)
++{
++	int err;
++
++	err = regmap_update_bits(haptics->regmap, AW86224_SYSCTRL2_REG,
++				 AW86224_SYSCTRL2_WAVDAT_MODE_MASK |
++				 AW86224_SYSCTRL2_INTN_PIN_MASK,
++				 AW86224_SYSCTRL2_INTN_PIN_MASK);
++	if (err)
++		return err;
++
++	err = regmap_update_bits(haptics->regmap, AW86224_SYSCTRL7_REG,
++				 AW86224_SYSCTRL7_GAIN_BYPASS_MASK |
++				 AW86224_SYSCTRL7_D2S_GAIN_MASK,
++				 AW86224_SYSCTRL7_GAIN_BYPASS_MASK |
++				 FIELD_PREP(AW86224_SYSCTRL7_D2S_GAIN_MASK,
++					    AW86224_SYSCTRL7_D2S_GAIN_10));
++	if (err)
++		return err;
++
++	err = regmap_update_bits(haptics->regmap, AW86224_ANACFG8_REG,
++				 AW86224_ANACFG8_TRTF_HDRV_MASK,
++				 AW86224_ANACFG8_TRTF_HDRV_MASK);
++	if (err)
++		return err;
++
++	err = regmap_update_bits(haptics->regmap, AW86927_CONTCFG5_REG,
++				 AW86927_CONTCFG5_BRK_GAIN_MASK,
++				 FIELD_PREP(AW86927_CONTCFG5_BRK_GAIN_MASK, 0x08));
++	if (err)
++		return err;
++
++	err = regmap_update_bits(haptics->regmap, AW86927_CONTCFG10_REG,
++				 AW86927_CONTCFG10_BRK_TIME_MASK,
++				 FIELD_PREP(AW86927_CONTCFG10_BRK_TIME_MASK,
++					    AW86927_CONTCFG10_BRK_TIME_DEFAULT));
++	if (err)
++		return err;
++
++	err = regmap_write(haptics->regmap, AW86927_CONTCFG13_REG,
++			   FIELD_PREP(AW86927_CONTCFG13_TSET_MASK, 0x06) |
++			   FIELD_PREP(AW86927_CONTCFG13_BEME_SET_MASK, 0x02));
++	if (err)
++		return err;
++
++	err = regmap_update_bits(haptics->regmap, AW86224_PWMCFG1_REG,
++				 AW86927_PWMCFG1_PRC_EN_MASK, 0);
++	if (err)
++		return err;
++
++	err = regmap_write(haptics->regmap, AW86224_PWMCFG3_REG,
++			   FIELD_PREP(AW86927_PWMCFG3_PR_EN_MASK, 0x01) |
++			   FIELD_PREP(AW86927_PWMCFG3_PRCTIME_MASK, 0x3f));
++	if (err)
++		return err;
++
++	err = regmap_update_bits(haptics->regmap, AW86224_PWMCFG4_REG,
++				 AW86927_PWMCFG4_PRTIME_MASK,
++				 FIELD_PREP(AW86927_PWMCFG4_PRTIME_MASK, 0x32));
++	if (err)
++		return err;
++
++	return regmap_update_bits(haptics->regmap, AW86927_PLAYCFG3_REG,
++				  AW86224_PLAYCFG3_BRK_EN_MASK, 0);
++}
++
+ static int aw86927_haptic_init(struct aw86927_data *haptics)
+ {
+ 	int err;
+ 
++	if (haptics->model == AW86224)
++		return aw86224_haptic_init(haptics);
++
+ 	err = regmap_update_bits(haptics->regmap,
+ 				 AW86927_SYSCTRL4_REG,
+ 				 AW86927_SYSCTRL4_WAVDAT_MODE_MASK,
+@@ -597,6 +713,8 @@ static int aw86927_haptic_init(struct aw86927_data *haptics)
+ 		if (err)
+ 			return err;
+ 		break;
++	case AW86224:
++		break;
+ 	}
+ 
+ 	err = regmap_update_bits(haptics->regmap,
+@@ -612,25 +730,31 @@ static int aw86927_haptic_init(struct aw86927_data *haptics)
+ 
+ static int aw86927_ram_init(struct aw86927_data *haptics)
+ {
++	unsigned int raminit_reg = AW86927_SYSCTRL3_REG;
++	unsigned int raminit_mask = AW86927_SYSCTRL3_EN_RAMINIT_MASK;
++	unsigned int baseaddrh = AW86927_BASEADDRH_VAL;
+ 	int err;
+ 
++	if (haptics->model == AW86224) {
++		raminit_reg = AW86224_SYSCTRL1_REG;
++		raminit_mask = AW86224_SYSCTRL1_RAMINIT_MASK;
++		baseaddrh |= AW86224_RTPCFG1_SRAM_3K;
++	}
++
+ 	err = aw86927_wait_enter_standby(haptics);
+ 	if (err)
+ 		return err;
+ 
+ 	/* Enable SRAM init */
+-	err = regmap_update_bits(haptics->regmap,
+-				 AW86927_SYSCTRL3_REG,
+-				 AW86927_SYSCTRL3_EN_RAMINIT_MASK,
+-				 FIELD_PREP(AW86927_SYSCTRL3_EN_RAMINIT_MASK,
+-					    AW86927_SYSCTRL3_EN_RAMINIT_ON));
++	err = regmap_update_bits(haptics->regmap, raminit_reg, raminit_mask, raminit_mask);
++	if (err)
++		return err;
+ 
+ 	/* AW86938 wants a 1ms delay here */
+ 	usleep_range(1000, 1500);
+ 
+ 	/* Set base address for the start of the SRAM waveforms */
+-	err = regmap_write(haptics->regmap,
+-			   AW86927_BASEADDRH_REG, AW86927_BASEADDRH_VAL);
++	err = regmap_write(haptics->regmap, AW86927_BASEADDRH_REG, baseaddrh);
+ 	if (err)
+ 		return err;
+ 
+@@ -662,42 +786,36 @@ static int aw86927_ram_init(struct aw86927_data *haptics)
+ 	if (err)
+ 		return err;
+ 
+-	err = regmap_update_bits(haptics->regmap,
+-				 AW86927_DETCFG2_REG,
+-				 AW86927_DETCFG2_DET_SEQ0_MASK,
+-				 FIELD_PREP(AW86927_DETCFG2_DET_SEQ0_MASK,
+-					    AW86927_DETCFG2_DET_SEQ0_VBAT));
+-	if (err)
+-		return err;
++	if (haptics->model != AW86224) {
++		err = regmap_update_bits(haptics->regmap,
++					 AW86927_DETCFG2_REG,
++					 AW86927_DETCFG2_DET_SEQ0_MASK,
++					 FIELD_PREP(AW86927_DETCFG2_DET_SEQ0_MASK,
++						    AW86927_DETCFG2_DET_SEQ0_VBAT));
++		if (err)
++			return err;
+ 
+-	err = regmap_update_bits(haptics->regmap,
+-				 AW86927_DETCFG1_REG,
+-				 AW86927_DETCFG1_DET_GO_MASK,
+-				 FIELD_PREP(AW86927_DETCFG1_DET_GO_MASK,
+-					    AW86927_DETCFG1_DET_GO_DET_SEQ0));
+-	if (err)
+-		return err;
++		err = regmap_update_bits(haptics->regmap,
++					 AW86927_DETCFG1_REG,
++					 AW86927_DETCFG1_DET_GO_MASK,
++					 FIELD_PREP(AW86927_DETCFG1_DET_GO_MASK,
++						    AW86927_DETCFG1_DET_GO_DET_SEQ0));
++		if (err)
++			return err;
+ 
+-	usleep_range(3000, 3500);
++		usleep_range(3000, 3500);
+ 
+-	err = regmap_update_bits(haptics->regmap,
+-				 AW86927_DETCFG1_REG,
+-				 AW86927_DETCFG1_DET_GO_MASK,
+-				 FIELD_PREP(AW86927_DETCFG1_DET_GO_MASK,
+-					    AW86927_DETCFG1_DET_GO_NA));
+-	if (err)
+-		return err;
++		err = regmap_update_bits(haptics->regmap,
++					 AW86927_DETCFG1_REG,
++					 AW86927_DETCFG1_DET_GO_MASK,
++					 FIELD_PREP(AW86927_DETCFG1_DET_GO_MASK,
++						    AW86927_DETCFG1_DET_GO_NA));
++		if (err)
++			return err;
++	}
+ 
+ 	/* Disable SRAM init */
+-	err = regmap_update_bits(haptics->regmap,
+-				 AW86927_SYSCTRL3_REG,
+-				 AW86927_SYSCTRL3_EN_RAMINIT_MASK,
+-				 FIELD_PREP(AW86927_SYSCTRL3_EN_RAMINIT_MASK,
+-					    AW86927_SYSCTRL3_EN_RAMINIT_OFF));
+-	if (err)
+-		return err;
+-
+-	return 0;
++	return regmap_update_bits(haptics->regmap, raminit_reg, raminit_mask, 0);
+ }
+ 
+ static irqreturn_t aw86927_irq(int irq, void *data)
+@@ -737,9 +855,31 @@ static irqreturn_t aw86927_irq(int irq, void *data)
+ static int aw86927_detect(struct aw86927_data *haptics)
+ {
+ 	__be16 read_buf;
++	unsigned int val;
+ 	u16 chip_id;
+ 	int err;
+ 
++	if ((uintptr_t)of_device_get_match_data(haptics->dev) == AW86224) {
++		err = regmap_read(haptics->regmap, AW86224_CHIPID_REG, &val);
++		if (err)
++			return dev_err_probe(haptics->dev, err,
++					     "Failed to read CHIPID register\n");
++		if (val != AW86224_CHIPID) {
++			dev_err(haptics->dev, "Unexpected AW86224 CHIPID 0x%x\n", val);
++			return -ENODEV;
++		}
++		err = regmap_read(haptics->regmap, AW86224_EFRD9_REG, &val);
++		if (err)
++			return dev_err_probe(haptics->dev, err,
++					     "Failed to read EFRD9 register\n");
++		if ((val & AW86224_EFRD9_MASK) != AW86224_EFRD9_ID) {
++			dev_err(haptics->dev, "Unexpected AW86224 EFRD9 0x%x\n", val);
++			return -ENODEV;
++		}
++		haptics->model = AW86224;
++		return 0;
++	}
++
+ 	err = regmap_bulk_read(haptics->regmap, AW86927_CHIPIDH_REG, &read_buf, 2);
+ 	if (err)
+ 		return dev_err_probe(haptics->dev, err, "Failed to read CHIPID registers\n");
+@@ -805,19 +945,35 @@ static int aw86927_probe(struct i2c_client *client)
+ 		return dev_err_probe(haptics->dev, err, "Failed to find chip\n");
+ 
+ 	/* IRQ config */
+-	err = regmap_write(haptics->regmap, AW86927_SYSCTRL4_REG,
+-			   FIELD_PREP(AW86927_SYSCTRL4_INT_MODE_MASK,
+-				      AW86927_SYSCTRL4_INT_MODE_EDGE) |
+-				FIELD_PREP(AW86927_SYSCTRL4_INT_EDGE_MODE_MASK,
+-					   AW86927_SYSCTRL4_INT_EDGE_MODE_POS));
+-	if (err)
+-		return dev_err_probe(haptics->dev, err, "Failed to configure interrupt modes\n");
++	if (haptics->model == AW86224) {
++		err = regmap_update_bits(haptics->regmap, AW86224_SYSCTRL7_REG,
++					 AW86224_SYSCTRL7_INT_MODE_MASK |
++					 AW86224_SYSCTRL7_INT_EDGE_MODE_MASK,
++					 AW86224_SYSCTRL7_INT_MODE_MASK);
++		if (err)
++			return dev_err_probe(haptics->dev, err,
++					     "Failed to configure interrupt modes\n");
+ 
+-	err = regmap_write(haptics->regmap, AW86927_SYSINTM_REG,
+-			   AW86927_SYSINTM_BST_OVPM |
+-				AW86927_SYSINTM_FF_AEM |
+-				AW86927_SYSINTM_FF_AFM |
+-				AW86927_SYSINTM_DONEM);
++		err = regmap_write(haptics->regmap, AW86927_SYSINTM_REG,
++				   AW86927_SYSINTM_FF_AEM |
++				   AW86927_SYSINTM_FF_AFM |
++				   AW86927_SYSINTM_DONEM);
++	} else {
++		err = regmap_write(haptics->regmap, AW86927_SYSCTRL4_REG,
++				   FIELD_PREP(AW86927_SYSCTRL4_INT_MODE_MASK,
++					      AW86927_SYSCTRL4_INT_MODE_EDGE) |
++				   FIELD_PREP(AW86927_SYSCTRL4_INT_EDGE_MODE_MASK,
++					      AW86927_SYSCTRL4_INT_EDGE_MODE_POS));
++		if (err)
++			return dev_err_probe(haptics->dev, err,
++					     "Failed to configure interrupt modes\n");
++
++		err = regmap_write(haptics->regmap, AW86927_SYSINTM_REG,
++				   AW86927_SYSINTM_BST_OVPM |
++				   AW86927_SYSINTM_FF_AEM |
++				   AW86927_SYSINTM_FF_AFM |
++				   AW86927_SYSINTM_DONEM);
++	}
+ 	if (err)
+ 		return dev_err_probe(haptics->dev, err, "Failed to configure interrupt masks\n");
+ 
+@@ -862,6 +1018,7 @@ static int aw86927_probe(struct i2c_client *client)
+ 
+ static const struct of_device_id aw86927_of_id[] = {
+ 	{ .compatible = "awinic,aw86927" },
++	{ .compatible = "awinic,aw86224", .data = (void *)AW86224 },
+ 	{ /* sentinel */ }
+ };
+ 
