@@ -168,9 +168,7 @@ temporary probes were removed and `pm_test` returned to `none`.
 
 ## Next diagnostic steps (in order)
 
-1. Push/rebuild the kernel without patch `0006` and verify `qcom-battmgr-bat`
-   negative discharge current on the phone before unmasking `sleep.target` and
-   enabling `omamobile-sleepd`.
+1. *(Done 2026-11-25)* Booted CI kernel `7b48084` (`0006` removed) on `/dev/sde27`: confirmed `qcom-battmgr-bat` `current_now` reads negative (`-281681 -> -264896` uA) while `charge_now` net-discharges (`114492 -> 114083` uAh under PC USB `SDP` `limit=100000`) and `upower -d` reports `discharging`, `warning-level: none`.
 2. Investigate what keeps `adsp` and `99c000.serial` (`cx` vote `128`) awake
    during freeze so `aosd` and `cxsd` can enter deep chip sleep.
 

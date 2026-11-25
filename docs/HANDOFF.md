@@ -5,6 +5,13 @@ Questo documento è il punto di ingresso per chi riprende il lavoro (umano o
 agente). Stato rilevato il 2026-11-12 sera; leggere anche `PROCESS.md`
 (stato corrente) e `PROGRESS.md` (log completo).
 
+**Aggiornamento 2026-11-25:**
+- **Verifica su hardware della build CI `7b48084` su `/dev/sde27` (batteria senza `0006` + aptica `AW86224` a `0x58`):**
+  - Riattivato slot `_b` (`fastboot set_active b`, retry `7`), avviata rescue `7b48084` e sincronizzati i `636` moduli `7.2.9-dubai+` su `/dev/sde27` (vecchi in `.old`).
+  - `modprobe aw86927` a `4-005a` dava `-ENXIO`: `i2cdetect`/`i2cget` su `i2c-4` hanno confermato che l'`AW86224` su `dubai` risponde a **`0x58`** (`CHIPID=0x00`, `EFRD9=0xb4`, come `aw862xx_i2c_addr = <0x58>` nel DTS downstream). Corretta la patch `0009` a `vibrator@58` (`reg = <0x58>`) e avviato Arch su `/dev/sde27` (`19.908s`, `graphical.target` `3.687s`, solo `plymouth-start.service` failed): `aw86927-haptics` (`4-0058`, `input4`, `SYSER=0x00`) ha eseguito `FF_RUMBLE` con vibrazione fisica confermata dal proprietario.
+  - Su `qcom-battmgr-bat` senza `0006` sotto USB `SDP` (`limit=100000`) `charge_now` è calato `114492 -> 114083` uAh con `current_now = -281681 -> -264896` µA (segno negativo reale in scarica) e `upower -d` (`discharging`, `0.693 W`, `warning-level: none`).
+  - Verificato `dubai-qbootctl-mark-successful --check` (`SLOT _b: ready to mark successful via /dev/sdd and /dev/sdf (dry-run)`). Prossimo passo: commit/push di `0009` (`vibrator@58`) per avere la build CI pulita, poi flash standalone `boot_b` e test `dubai-qbootctl-mark-successful`.
+
 **Aggiornamento 2026-11-24:**
 - **M8 pacchettizzato e isolamento `adsp`/`wpss` su `/dev/sde27`:**
   - `omamobile-device-dubai 0.1.0-14` (`75-dubai-bluetooth.rules`) imposta `99c000.serial/power/wakeup=disabled` al boot freddo; verificato scan BT `bluetoothctl --timeout 4 scan on` sia prima sia dopo wake `s2idle`.

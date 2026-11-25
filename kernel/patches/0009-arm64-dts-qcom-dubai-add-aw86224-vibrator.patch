@@ -1,9 +1,9 @@
 Subject: [PATCH] arm64: dts: qcom: dubai: add AW86224 haptic vibrator node
 
 Add compatible "awinic,aw86224" to Documentation/devicetree/bindings/input/
-awinic,aw86927.yaml and wire vibrator@5a on &i2c4 for sm7325-motorola-dubai
+awinic,aw86927.yaml and wire vibrator@58 on &i2c4 for sm7325-motorola-dubai
 using the existing aw86224_reset_default (gpio46) and aw86224_int_default
-(gpio47) pinctrl states.
+(gpio47) pinctrl states. On dubai the AW86224 responds at I2C address 0x58.
 ---
 diff --git i/Documentation/devicetree/bindings/input/awinic,aw86927.yaml w/Documentation/devicetree/bindings/input/awinic,aw86927.yaml
 index bd74b8148..264c4c8f7 100644
@@ -29,9 +29,9 @@ index ef91986a1..dc751f60f 100644
  		};
  	};
 +
-+	vibrator@5a {
++	vibrator@58 {
 +		compatible = "awinic,aw86224";
-+		reg = <0x5a>;
++		reg = <0x58>;
 +
 +		interrupts-extended = <&tlmm 47 IRQ_TYPE_EDGE_FALLING>;
 +		reset-gpios = <&tlmm 46 GPIO_ACTIVE_LOW>;
