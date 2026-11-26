@@ -5,6 +5,16 @@ Questo documento è il punto di ingresso per chi riprende il lavoro (umano o
 agente). Stato rilevato il 2026-11-12 sera; leggere anche `PROCESS.md`
 (stato corrente) e `PROGRESS.md` (log completo).
 
+**Aggiornamento 2026-11-26 (notte):**
+- **Build CI `45894836686` (`a687e37`), pacchetti su `/dev/sde27` e primo boot live delle nuove camere:**
+  - Compilati e installati su `/dev/sde27` `omamobile-device-dubai 0.1.0-20`, `libcamera 0.7.2-4.27` e `libcamera-ipa 0.7.2-4.27` (`pacman -Dk` pulito), aggiornati `/home/antona89/.config/omacam/lenses.toml` e `/home/antona89/camera-pipewire.sh`.
+  - La run CI [`45894836686`](https://github.com/Lwb89dev/dubai-omarchy-porting/actions/runs/45894836686) è passata (`static` 6m21s, `kernel-initramfs` 36m47s); artefatti verificati in `work/kernel-ci-a687e37/` (`CONFIG_VIDEO_OV50A=m`, `CONFIG_VIDEO_OV32B40=m`, `CONFIG_FW_DEVLINK_SYNC_STATE_TIMEOUT=y`), moduli sincronizzati su `/dev/sde27` (backup `8954580` in `/usr/lib/modules/7.2.9-dubai+.8954580`) e creata `out/images-userdata-a687e37/boot-dubai-csot-UNTESTED.img` (`fw_devlink.sync_state=timeout`).
+  - Avviata via `fastboot boot` temporaneo (`ZY22FJBCNQ`, `slot-retry-count:b: 4`, `4207 mV`, `Booting OKAY [10.189s]`; `boot_b` su flash non toccata). Riscontro visivo del proprietario in `omacam`:
+    - `ultrawide` (`s5kjn1`): funziona a colori;
+    - `front` (`ov32b40`): ora appare e riprende, ma con **colori R/B invertiti** (ordine Bayer da correggere in `ov32b40_mbus_codes`);
+    - `main` (`ov50a`) e l'altro sensore posteriore (`gc02m1b`): non si attivano.
+  - USB (`lsusb`) e SSH Wi-Fi (`192.168.1.164`) non erano raggiungibili dopo il `fastboot boot`, quindi non è stato possibile raccogliere `dmesg` / `media-ctl` o testare `s2idle`. Prossimi passi per la prossima sessione: (1) recuperare accesso SSH/USB (`serial-getty@ttyGS0` o Wi-Fi) per leggere `dmesg` sul probe di `ov50a` e `gc02m1b`, (2) correggere l'ordine Bayer R/B su `ov32b40` (`0011`), (3) testare `tests/camera-pipewire.sh` e `s2idle` con `fw_devlink.sync_state=timeout` + `0013` + `rfkill block bluetooth`.
+
 **Aggiornamento 2026-11-26:**
 - **Implementazione parallela OV50A/OV32B40 + diagnosi LPASS/BT + verifica autorotate (`192.168.1.164`, 2026-11-26 sera):**
   - Estratti in sola lettura da `/dev/sde26` (`super` -> `vendor`) i blob Chromatix `com.qti.sensormodule.mot_dubai_{ov50a_sunny,ov32b40_ofilm,s5kjn1_qtech,gc02m1b_hlt}.bin` + `.so` in `private-capture/2026-11-26/camera-blobs/` (fuori dal repo Git). Verificato dai registri (`0x4888=0x80`, `laneAssign=0x0210`, `op_px_clk` C-PHY 16/7×3) che **sia OV50A sia OV32B40 usano MIPI CSI-2 C-PHY a 3 trio** (`bus-type = <1>`, `data-lanes = <0 1 2>`, supportato nativamente da `qcom_camss` SC7280).
