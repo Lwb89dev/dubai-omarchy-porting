@@ -1,22 +1,46 @@
 # SPDX-License-Identifier: MIT
 # Camera lens table for Motorola Edge 30 (dubai) with omacam.
-# Mainline DTS exposes gc02m1b (2 MP monochrome depth, cci1@37) before
-# s5kjn1 (50 MP RGB main, cci0@56); without this table, omacam picks gc02m1b.
-# Preview 1920x1440 (42.2 MiB CMA) and still 4080x3072 (96.0 MiB CMA) fit
-# inside the default 136 MiB CMA pool. ov50a (ultrawide) and ov32b40 (front)
-# are not yet ported to mainline Linux.
+# Mainline DTS exposes ov32b40 (front, cci0@10), s5kjn1 (ultrawide/macro,
+# cci0_i2c1@56), ov50a (50 MP OIS main, cci1@10), and gc02m1b (2 MP depth,
+# cci1_i2c1@37); without this table, omacam picks the first enumerated sensor.
 device = "dubai"
 max_zoom = 10.0
 
 [[lens]]
 role = "main"
 name = "Main"
-id = "/base/soc@0/cci@ac4a000/i2c-bus@1/sensor@56"
+id = "/base/soc@0/cci@ac4b000/i2c-bus@0/sensor@10"
 zoom = 1.0
 f_number = 1.8
 focal_length_35mm = 24
 focal_length_mm = 4.5
 base_iso = 50
+preview = [2048, 1536]
+still = [4096, 3072]
+autofocus = true
+
+[[lens]]
+role = "ultrawide"
+name = "Ultrawide"
+id = "/base/soc@0/cci@ac4a000/i2c-bus@1/sensor@56"
+zoom = 0.6
+f_number = 2.2
+focal_length_35mm = 14
+focal_length_mm = 2.6
+base_iso = 50
 preview = [1920, 1440]
 still = [4080, 3072]
 autofocus = true
+
+[[lens]]
+role = "front"
+name = "Front"
+id = "/base/soc@0/cci@ac4a000/i2c-bus@0/sensor@10"
+zoom = 1.0
+f_number = 2.4
+focal_length_35mm = 26
+focal_length_mm = 3.5
+base_iso = 50
+preview = [3264, 2448]
+still = [3264, 2448]
+autofocus = false

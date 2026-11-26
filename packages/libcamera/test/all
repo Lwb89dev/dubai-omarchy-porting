@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 bash -n PKGBUILD
-grep -q 'pkgrel=4.26' PKGBUILD
+grep -q 'pkgrel=4.27' PKGBUILD
 grep -q 'apps-output-dng=disabled' PKGBUILD
 grep -q 'ipas=simple' PKGBUILD
 grep -q 'pipelines=simple' PKGBUILD
@@ -18,6 +18,9 @@ grep -q 'install -Dm644 s5kjn1.yaml "$pkgdir/usr/share/libcamera/ipa/simple/s5kj
 grep -q 'coarseSteps: 8' s5kjn1.yaml
 grep -q 'REGISTER_CAMERA_SENSOR_HELPER("gc02m1b"' dubai-sensor-helpers.patch
 grep -q 'AnalogueGainLinear{ 1, 0, 0, 1024 }' dubai-sensor-helpers.patch
+grep -q 'REGISTER_CAMERA_SENSOR_HELPER("ov32b40"' dubai-sensor-helpers.patch
+grep -q 'REGISTER_CAMERA_SENSOR_HELPER("ov50a"' dubai-sensor-helpers.patch
+grep -q 'AnalogueGainLinear{ 1, 0, 0, 256 }' dubai-sensor-helpers.patch
 grep -q 'REGISTER_CAMERA_SENSOR_HELPER("s5kjn1"' dubai-sensor-helpers.patch
 grep -q 'AnalogueGainLinear{ 1, 0, 0, 1 }' dubai-sensor-helpers.patch
 mapfile -t sums < <(awk '

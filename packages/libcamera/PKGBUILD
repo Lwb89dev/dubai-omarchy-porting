@@ -2,7 +2,7 @@
 pkgbase=libcamera
 pkgname=(libcamera libcamera-ipa)
 pkgver=0.7.2
-pkgrel=4.26
+pkgrel=4.27
 pkgdesc="A complex camera support library for Linux, with dubai sensor helpers and soft-ISP AF"
 arch=(aarch64)
 url="https://libcamera.org/"
@@ -33,7 +33,7 @@ source=("git+https://git.libcamera.org/libcamera/libcamera.git#tag=v$pkgver"
         0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
         s5kjn1.yaml)
 sha256sums=(SKIP
-            7d516c43b1bf773f5cd4ccb9480b903470f77a8ea1d2cad447485b02c6c25935
+            89af6cc5dba1555511d222d65035e9de48b721e865d046e887bd409f41f65637
             b1c2980e12dcddb77eab31a4811b829893f9b79ab2b50f7b9763dd49fb198d09
             02c87a845d794ac19f2b8816443b95a26a54d4e49c9c39f7e8851fa0e4e2ae82
             6359941238cffb3d5206c09c853605e08a75446aacc31e570d09909603442f6f

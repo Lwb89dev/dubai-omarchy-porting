@@ -18,8 +18,8 @@ for obj in json.load(sys.stdin):
         print(name)
 ')
 
-((${#nodes[@]} == 2)) || {
-    echo "Expected two libcamera sources, found ${#nodes[@]}" >&2
+((${#nodes[@]} == 4)) || {
+    echo "Expected four libcamera sources, found ${#nodes[@]}" >&2
     exit 1
 }
 

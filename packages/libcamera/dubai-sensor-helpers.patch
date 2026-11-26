@@ -2,11 +2,12 @@ Subject: [PATCH] ipa: libipa: add dubai sensor gain helpers
 
 GC02M1B expresses analogue gain in 1/1024 units. S5KJN1's driver exposes
 the real linear gain directly and shifts it into the sensor's 16-bit
-register. Describe both conversions so the software IPA can run AGC with
-real gain values. Black-level and color tuning remain uncalibrated.
+register. OV32B40 and OV50A expose analogue gain in 1/256 units. Describe
+all four conversions so the software IPA can run AGC with real gain
+values. Black-level and color tuning remain uncalibrated.
 ---
 diff --git a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
-index 9457d62..f75e5ee 100644
+index 9457d62..9c3e2b1 100644
 --- a/src/ipa/libipa/camera_sensor_helper.cpp
 +++ b/src/ipa/libipa/camera_sensor_helper.cpp
 @@ -496,6 +496,16 @@ private:
@@ -26,10 +27,30 @@ index 9457d62..f75e5ee 100644
  class CameraSensorHelperGc05a2 : public CameraSensorHelper
  {
  public:
-@@ -827,6 +837,16 @@ public:
+@@ -827,6 +837,36 @@ public:
  };
  REGISTER_CAMERA_SENSOR_HELPER("ov13858", CameraSensorHelperOv13858)
  
++class CameraSensorHelperOv32b40 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperOv32b40()
++	{
++		gain_ = AnalogueGainLinear{ 1, 0, 0, 256 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("ov32b40", CameraSensorHelperOv32b40)
++
++class CameraSensorHelperOv50a : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperOv50a()
++	{
++		gain_ = AnalogueGainLinear{ 1, 0, 0, 256 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("ov50a", CameraSensorHelperOv50a)
++
 +class CameraSensorHelperS5kjn1 : public CameraSensorHelper
 +{
 +public:

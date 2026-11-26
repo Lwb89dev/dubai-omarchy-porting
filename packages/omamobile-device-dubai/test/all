@@ -40,7 +40,9 @@ grep -q '\[ \$disk_a != "sde" && \$disk_b != "sde" \]' dubai-qbootctl-mark-succe
 ! grep -q 'enable.*omamobile-dubai-qbootctl-mark-successful' PKGBUILD
 ! grep -q 'omamobile-dubai-qbootctl-mark-successful.service' PKGBUILD || ! grep -q 'wants/omamobile-dubai-qbootctl-mark-successful.service' PKGBUILD
 grep -q 'ENV{ACCEL_MOUNT_MATRIX}+="-1, 0, 0; 0, -1, 0; 0, 0, 1"' 81-libssc-motorola-dubai.rules
+grep -q 'id = "/base/soc@0/cci@ac4b000/i2c-bus@0/sensor@10"' omacam-lenses.toml
 grep -q 'id = "/base/soc@0/cci@ac4a000/i2c-bus@1/sensor@56"' omacam-lenses.toml
+grep -q 'id = "/base/soc@0/cci@ac4a000/i2c-bus@0/sensor@10"' omacam-lenses.toml
 grep -q 'omacam-lenses.toml' PKGBUILD
 grep -q 'omamobile-dubai-omacam-lenses.service' PKGBUILD
 echo 'ok dubai package is RAM-only, selects libcamera, configures a local Bluetooth address, protects non-userdata UFS partitions, wants the sensor stack, wires call audio, opens the gadget getty, guards A/B slot marking, and depends on zram-generator'

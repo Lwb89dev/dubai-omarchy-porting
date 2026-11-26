@@ -1,0 +1,353 @@
+Subject: [PATCH] arm64: dts: qcom: dubai: wire OV50A and OV32B40 cameras
+
+Add devicetree bindings for ovti,ov50a and ovti,ov32b40 and wire the
+rear main 50 MP OV50A (with ak7375-compatible VCM on &cci1_i2c0 / port@1)
+and front 32 MP OV32B40 (on &cci0_i2c0 / port@0) over 3-trio MIPI C-PHY.
+---
+diff --git a/Documentation/devicetree/bindings/media/i2c/ovti,ov32b40.yaml b/Documentation/devicetree/bindings/media/i2c/ovti,ov32b40.yaml
+new file mode 100644
+index 000000000..ffaf78a9e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/i2c/ovti,ov32b40.yaml
+@@ -0,0 +1,99 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/i2c/ovti,ov32b40.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: OmniVision OV32B40 Image Sensor
++
++maintainers:
++  - Omarchy Mobile Contributors <dev@omarchy.org>
++
++allOf:
++  - $ref: /schemas/media/video-interface-devices.yaml#
++
++properties:
++  compatible:
++    const: ovti,ov32b40
++
++  reg:
++    maxItems: 1
++
++  clocks:
++    maxItems: 1
++
++  avdd-supply:
++    description: Analog voltage supply, 2.8 volts
++
++  dvdd-supply:
++    description: Digital core voltage supply, 1.05 volts
++
++  dovdd-supply:
++    description: Digital I/O voltage supply, 1.8 volts
++
++  reset-gpios:
++    maxItems: 1
++
++  port:
++    $ref: /schemas/graph.yaml#/$defs/port-base
++    additionalProperties: false
++
++    properties:
++      endpoint:
++        $ref: /schemas/media/video-interfaces.yaml#
++        additionalProperties: false
++
++        properties:
++          bus-type:
++            const: 1 # MIPI CSI-2 C-PHY
++          data-lanes:
++            minItems: 3
++            maxItems: 3
++          link-frequencies: true
++          remote-endpoint: true
++
++        required:
++          - bus-type
++          - data-lanes
++          - link-frequencies
++
++required:
++  - compatible
++  - reg
++  - clocks
++  - avdd-supply
++  - dvdd-supply
++  - dovdd-supply
++  - reset-gpios
++  - port
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/gpio/gpio.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        sensor@10 {
++            compatible = "ovti,ov32b40";
++            reg = <0x10>;
++
++            clocks = <&camcc 2>;
++            avdd-supply = <&cam_avdd2_2p8>;
++            dvdd-supply = <&cam_dvdd1_1p05>;
++            dovdd-supply = <&cam_iovdd_1p8>;
++            reset-gpios = <&tlmm 20 GPIO_ACTIVE_LOW>;
++
++            port {
++                endpoint {
++                    bus-type = <1>;
++                    data-lanes = <0 1 2>;
++                    link-frequencies = /bits/ 64 <450000000>;
++                    remote-endpoint = <&csiphy0_ep>;
++                };
++            };
++        };
++    };
+diff --git a/Documentation/devicetree/bindings/media/i2c/ovti,ov50a.yaml b/Documentation/devicetree/bindings/media/i2c/ovti,ov50a.yaml
+new file mode 100644
+index 000000000..fc3b6d72d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/i2c/ovti,ov50a.yaml
+@@ -0,0 +1,102 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/i2c/ovti,ov50a.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: OmniVision OV50A Image Sensor
++
++maintainers:
++  - Omarchy Mobile Contributors <dev@omarchy.org>
++
++allOf:
++  - $ref: /schemas/media/video-interface-devices.yaml#
++
++properties:
++  compatible:
++    const: ovti,ov50a
++
++  reg:
++    maxItems: 1
++
++  clocks:
++    maxItems: 1
++
++  avdd-supply:
++    description: Analog voltage supply, 2.8 volts
++
++  dvdd-supply:
++    description: Digital core voltage supply, 1.05 volts
++
++  dovdd-supply:
++    description: Digital I/O voltage supply, 1.8 volts
++
++  afvdd-supply:
++    description: Autofocus VCM voltage supply, 2.8 volts
++
++  reset-gpios:
++    maxItems: 1
++
++  port:
++    $ref: /schemas/graph.yaml#/$defs/port-base
++    additionalProperties: false
++
++    properties:
++      endpoint:
++        $ref: /schemas/media/video-interfaces.yaml#
++        additionalProperties: false
++
++        properties:
++          bus-type:
++            const: 1 # MIPI CSI-2 C-PHY
++          data-lanes:
++            minItems: 3
++            maxItems: 3
++          link-frequencies: true
++          remote-endpoint: true
++
++        required:
++          - bus-type
++          - data-lanes
++          - link-frequencies
++
++required:
++  - compatible
++  - reg
++  - clocks
++  - avdd-supply
++  - dvdd-supply
++  - dovdd-supply
++  - reset-gpios
++  - port
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/gpio/gpio.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        sensor@10 {
++            compatible = "ovti,ov50a";
++            reg = <0x10>;
++
++            clocks = <&camcc 0>;
++            avdd-supply = <&cam_avdd1_2p8>;
++            dvdd-supply = <&cam_dvdd0_1p05>;
++            dovdd-supply = <&cam_iovdd_1p8>;
++            reset-gpios = <&tlmm 77 GPIO_ACTIVE_LOW>;
++
++            port {
++                endpoint {
++                    bus-type = <1>;
++                    data-lanes = <0 1 2>;
++                    link-frequencies = /bits/ 64 <962000000 980000000>;
++                    remote-endpoint = <&csiphy1_ep>;
++                };
++            };
++        };
++    };
+diff --git a/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-common.dtsi b/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-common.dtsi
+index ef91986a1..ae64c1d6f 100644
+--- a/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-common.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm7325-motorola-dubai-common.dtsi
+@@ -750,6 +750,22 @@ &camss {
+ 	status = "okay";
+ 
+ 	ports {
++		port@0 {
++			csiphy0_ep: endpoint {
++				bus-type = <1>;
++				data-lanes = <0 1 2>;
++				remote-endpoint = <&camera_ov32b40_ep>;
++			};
++		};
++
++		port@1 {
++			csiphy1_ep: endpoint {
++				bus-type = <1>;
++				data-lanes = <0 1 2>;
++				remote-endpoint = <&camera_ov50a_ep>;
++			};
++		};
++
+ 		port@2 {
+ 			csiphy2_ep: endpoint {
+ 				data-lanes = <0 1 2 3>;
+@@ -770,6 +786,47 @@ &cci0 {
+ 	status = "okay";
+ };
+ 
++&cci0_i2c0 {
++	eeprom@51 {
++		compatible = "giantec,gt24p64a",
++			     "atmel,24c64";
++		reg = <0x51>;
++
++		vcc-supply = <&cam_iovdd_1p8>;
++
++		read-only;
++	};
++
++	sensor@10 {
++		compatible = "ovti,ov32b40";
++		reg = <0x10>;
++
++		avdd-supply = <&cam_avdd2_2p8>;
++		dovdd-supply = <&cam_iovdd_1p8>;
++		dvdd-supply = <&cam_dvdd1_1p05>;
++
++		clocks = <&camcc CAM_CC_MCLK2_CLK>;
++		assigned-clocks = <&camcc CAM_CC_MCLK2_CLK>;
++		assigned-clock-rates = <24000000>;
++
++		reset-gpios = <&tlmm 20 GPIO_ACTIVE_LOW>;
++		pinctrl-0 = <&cam_mclk2_default>;
++		pinctrl-names = "default";
++
++		orientation = <0>; /* Front facing */
++		rotation = <90>;
++
++		port {
++			camera_ov32b40_ep: endpoint {
++				bus-type = <1>;
++				data-lanes = <0 1 2>;
++				link-frequencies = /bits/ 64 <450000000>;
++				remote-endpoint = <&csiphy0_ep>;
++			};
++		};
++	};
++};
++
+ &cci0_i2c1 {
+ 	ak7375_s5kjn1: camera-lens@c {
+ 		compatible = "asahi-kasei,ak7375";
+@@ -824,6 +881,58 @@ &cci1 {
+ 	status = "okay";
+ };
+ 
++&cci1_i2c0 {
++	ak7377_ov50a: camera-lens@c {
++		compatible = "asahi-kasei,ak7375";
++		reg = <0x0c>;
++
++		vdd-supply = <&cam_afvdd_2p8>;
++		vio-supply = <&cam_iovdd_1p8>;
++	};
++
++	eeprom@50 {
++		compatible = "giantec,gt24p128e",
++			     "atmel,24c128";
++		reg = <0x50>;
++
++		vcc-supply = <&cam_iovdd_1p8>;
++
++		read-only;
++	};
++
++	sensor@10 {
++		compatible = "ovti,ov50a";
++		reg = <0x10>;
++
++		afvdd-supply = <&cam_afvdd_2p8>;
++		avdd-supply = <&cam_avdd1_2p8>;
++		dovdd-supply = <&cam_iovdd_1p8>;
++		dvdd-supply = <&cam_dvdd0_1p05>;
++
++		clocks = <&camcc CAM_CC_MCLK0_CLK>;
++		assigned-clocks = <&camcc CAM_CC_MCLK0_CLK>;
++		assigned-clock-rates = <24000000>;
++
++		reset-gpios = <&tlmm 77 GPIO_ACTIVE_LOW>;
++		pinctrl-0 = <&cam_mclk0_default>;
++		pinctrl-names = "default";
++
++		orientation = <1>; /* Back facing */
++		rotation = <270>;
++
++		lens-focus = <&ak7377_ov50a>;
++
++		port {
++			camera_ov50a_ep: endpoint {
++				bus-type = <1>;
++				data-lanes = <0 1 2>;
++				link-frequencies = /bits/ 64 <962000000 980000000>;
++				remote-endpoint = <&csiphy1_ep>;
++			};
++		};
++	};
++};
++
+ &cci1_i2c1 {
+ 	sensor@37 {
+ 		compatible = "galaxycore,gc02m1b";
