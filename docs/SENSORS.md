@@ -73,3 +73,13 @@ tilt, and live compass headings (`268.9°–355.4°`). On 2026-11-24 `/dev/sde27
 screen-up (`-1, 0, 0; 0, -1, 0; 0, 0, -1` in `81-libssc-motorola-dubai.rules`
 inverts Z; left unchanged pending owner confirmation of portrait/landscape
 axes).
+
+2026-11-26 raw accelerometer check and Z-axis fix on `/dev/sde27` (CI `8954580`
+standalone `boot_b`): while lying screen-up (`325.78 lux`), `ssccli --sensor
+accelerometer` (identity fallback) reported `X≈0.44, Y≈0.08, Z≈+9.79 m/s²`,
+confirming `-1` on Z in `81-libssc-motorola-dubai.rules` caused the false
+`tilt: face-down`. Updated `81-libssc-motorola-dubai.rules` to
+`-1, 0, 0; 0, -1, 0; 0, 0, 1` (`det = +1`) in `omamobile-device-dubai 0.1.0-17`,
+built and installed on `/dev/sde27`: after reloading udev and restarting
+`iio-sensor-proxy`, `monitor-sensor` immediately reported **`tilt: face-up`**
+(`330.85 lux`, compass `303.1°–303.3°`) with `omamobile-autorotate` `active`.

@@ -46,15 +46,7 @@ diff --git a/src/ipa/simple/soft_simple.cpp b/src/ipa/simple/soft_simple.cpp
 index 629e1a32de8a..8bffd2a441fd 100644
 --- a/src/ipa/simple/soft_simple.cpp
 +++ b/src/ipa/simple/soft_simple.cpp
-@@ -6,6 +6,7 @@
-  */
- 
- #include <chrono>
-+#include <cmath>
- #include <stdint.h>
- #include <sys/mman.h>
- 
-@@ -228,10 +229,21 @@ int IPASoftSimple::configure(const IPAConfigInfo &configInfo)
+@@ -228,10 +228,21 @@ int IPASoftSimple::configure(const IPAConfigInfo &configInfo)
  		context_.configuration.agc.againMin = camHelper_->gain(againMin);
  		context_.configuration.agc.againMax = camHelper_->gain(againMax);
  		context_.configuration.agc.again10 = std::max(context_.configuration.agc.againMin, 1.0);

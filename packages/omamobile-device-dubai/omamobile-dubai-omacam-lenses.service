@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Seed default omacam lens table for Motorola dubai
+ConditionPathExists=!%E/omacam/lenses.toml
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'mkdir -p "%E/omacam" && cp /usr/share/omamobile/omacam-lenses.toml "%E/omacam/lenses.toml"'
+
+[Install]
+WantedBy=default.target

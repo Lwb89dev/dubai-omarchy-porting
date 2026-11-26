@@ -169,8 +169,7 @@ temporary probes were removed and `pm_test` returned to `none`.
 ## Next diagnostic steps (in order)
 
 1. *(Done 2026-11-25)* Booted CI kernel `7b48084` (`0006` removed) on `/dev/sde27`: confirmed `qcom-battmgr-bat` `current_now` reads negative (`-281681 -> -264896` uA) while `charge_now` net-discharges (`114492 -> 114083` uAh under PC USB `SDP` `limit=100000`) and `upower -d` reports `discharging`, `warning-level: none`.
-2. Investigate what keeps `adsp` and `99c000.serial` (`cx` vote `128`) awake
-   during freeze so `aosd` and `cxsd` can enter deep chip sleep.
+2. *(Checked 2026-11-26)* On standalone `8954580` `/dev/sde27`, `lpass_aon` (`3380000`) and `lpass_core` (`3900000`) are `status = "reserved"` (owned by ADSP firmware) and `lpass_audiocc` uses `qcom,qcm6490-lpassaudiocc` without `power-domains`; `pm_genpd_summary` shows `hlos1_vote_mmnoc_mmu_tbu_{sf0,hf0,hf1}_gdsc` `on` (with TBUs `suspended`), `disp_cc_mdss_core_gdsc` `on` (`ae00000.display-subsystem` `suspended`), `99c000.serial` active (`128` vote on `cx` at runtime), and `pmic_glink` (`altmode`, `power-supply`, `ucsi`) + `q6*` audio services attached to ADSP (`3700000.remoteproc`). Next step once battery is charged: test `s2idle` with `pmic_glink` / `q6*` unloaded and inspect suspend-time `cx` voters so `adsp`, `aosd`, and `cxsd` can sleep.
 
 ## Operational notes for future sessions
 

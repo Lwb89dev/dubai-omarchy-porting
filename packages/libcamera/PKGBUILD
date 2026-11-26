@@ -2,20 +2,60 @@
 pkgbase=libcamera
 pkgname=(libcamera libcamera-ipa)
 pkgver=0.7.2
-pkgrel=4.25
-pkgdesc="A complex camera support library for Linux, with dubai sensor helpers"
+pkgrel=4.26
+pkgdesc="A complex camera support library for Linux, with dubai sensor helpers and soft-ISP AF"
 arch=(aarch64)
 url="https://libcamera.org/"
 license=(LGPL-2.1-or-later)
 makedepends=(cmake git libdrm libelf libglvnd libpisp libunwind libyaml libyuv meson python-jinja python-ply python-yaml systemd)
 source=("git+https://git.libcamera.org/libcamera/libcamera.git#tag=v$pkgver"
         dubai-sensor-helpers.patch
+        0003-ipa-simple-agc-Step-faster-when-far-from-the-target-.patch
+        0005-libcamera-software_isp-add-contrast-autofocus.patch
+        0006-software_isp-Focus-on-the-frame-centre-with-statisti.patch
+        0007-software_isp-Steadier-contrast-autofocus.patch
+        0008-software_isp-Keep-exposure-white-balance-and-focus-a.patch
+        0010-software_isp-Gather-GPU-statistics-over-the-visible-.patch
+        0011-ipa-simple-agc-Add-digital-gain-past-the-sensor-s-li.patch
+        0015-ipa-simple-agc-Step-out-of-a-pinned-histogram-quickl.patch
+        0016-software_isp-debayer_egl-Destroy-the-EGL-context-whe.patch
+        0017-ipa-simple-agc-Judge-only-frames-taken-with-the-last.patch
+        0018-ipa-simple-Carry-the-exposure-over-to-another-mode-o.patch
+        0019-ipa-simple-agc-Report-the-AE-state.patch
+        0020-ipa-simple-agc-Add-exposure-compensation.patch
+        0021-ipa-simple-Take-the-sensor-mode-s-timings-at-configu.patch
+        0022-ipa-simple-agc-Support-manual-exposure-time-and-anal.patch
+        0024-software_isp-Gather-focus-statistics-over-a-window-t.patch
+        0025-ipa-simple-Focus-and-meter-on-the-application-s-wind.patch
+        0026-ipa-simple-af-Support-pausing-continuous-autofocus.patch
+        0035-ipa-simple-af-Scan-less.patch
+        0040-ipa-simple-af-Settle-less-for-fine-steps.patch
         0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
         s5kjn1.yaml)
 sha256sums=(SKIP
             7d516c43b1bf773f5cd4ccb9480b903470f77a8ea1d2cad447485b02c6c25935
-            1095725bbb3d8e4571be2d2d193727b3de9f97f1fe9b96953e03d8639cd6b7ba
-            85e2a8e694c825f741acb25d336c058011e56434b56715e57305206f38ca8cbd)
+            b1c2980e12dcddb77eab31a4811b829893f9b79ab2b50f7b9763dd49fb198d09
+            02c87a845d794ac19f2b8816443b95a26a54d4e49c9c39f7e8851fa0e4e2ae82
+            6359941238cffb3d5206c09c853605e08a75446aacc31e570d09909603442f6f
+            79e8a6984fb797e56440af21f0d07660a11e1b5551375f7b0722b93d2126ac33
+            5b7a1771ac7f2b08f5d9db3a97e9bc1eba3dac3aac73b60bc3d8ba3ad424737c
+            af09913f1e0f65f493e53fd9c45a314f5f8f215f6580109d8876030909104f7f
+            f412010ea87f9b4e7cf864d4086d76681f2ebdd5cd83b10069110ca5f904da07
+            0fe450331717a75c8fd148a463c92a167e62e2e288405d00e19403e6c6776e5d
+            19fbfc654e66beaaeafa64d10de1cce6cc6b0f67d03a0243c1dc6b0c4854565e
+            87ab2d596c8bd175cf3726e1d07e32f7ee91b2b39502893818d921c8c4b3d5d5
+            11155e3362957e99adcded798417c3b810249721bfe1591fbe609037915f76c2
+            ad02e2bcfbe52cadc4ad6a7416e5da715dd6a3b11973e7a1b11e293dcfd2d4fe
+            3cbc50b2b01c3aa1d2311560a1faba14c31a537d7fbfc68c1a16c9e6816eea68
+            929380483af97f516a11c1c82e4e4e4643b4d7480d56cfb573625e8999096746
+            af31e5a93defbb7e5c0e9f7a035f744dabf6011978f2d6200ce5771797417a15
+            bde26dec711d39ff56d335a6fcaadcb727bdc7e8fbec0076d3d5502a74a3da8d
+            60a79c93247e15a54300898063b3d61a80273df655ab4515f0a6507cf062f1d2
+            a9ea1fb6dba794d10952f0e52ddc82dcd94a165fe6a2f5270b010fa2ef52579d
+            0867e0cd92b1139d4f87a1a845bc9466eb7f47e02059c6944b53cb38bbe037bd
+            b622693388f2fc22d36f26ba3e4efba75d84986c9b52dcc62e4eb1054bb105f3
+            ac52428e6d8ec310365515d40f9f169f83d175509065c2521c62017717c2215c
+            7e50cee58490414811605512275930598d7539e1dc7c4d5e87d64e5ae93064e5)
 
 _pick() {
     local p="$1" f d
@@ -30,8 +70,32 @@ _pick() {
 
 prepare() {
     cd "$pkgbase"
-    patch -Np1 <../dubai-sensor-helpers.patch
-    patch -Np1 <../0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
+    local p
+    for p in \
+        dubai-sensor-helpers.patch \
+        0003-ipa-simple-agc-Step-faster-when-far-from-the-target-.patch \
+        0005-libcamera-software_isp-add-contrast-autofocus.patch \
+        0006-software_isp-Focus-on-the-frame-centre-with-statisti.patch \
+        0007-software_isp-Steadier-contrast-autofocus.patch \
+        0008-software_isp-Keep-exposure-white-balance-and-focus-a.patch \
+        0010-software_isp-Gather-GPU-statistics-over-the-visible-.patch \
+        0011-ipa-simple-agc-Add-digital-gain-past-the-sensor-s-li.patch \
+        0015-ipa-simple-agc-Step-out-of-a-pinned-histogram-quickl.patch \
+        0016-software_isp-debayer_egl-Destroy-the-EGL-context-whe.patch \
+        0017-ipa-simple-agc-Judge-only-frames-taken-with-the-last.patch \
+        0018-ipa-simple-Carry-the-exposure-over-to-another-mode-o.patch \
+        0019-ipa-simple-agc-Report-the-AE-state.patch \
+        0020-ipa-simple-agc-Add-exposure-compensation.patch \
+        0021-ipa-simple-Take-the-sensor-mode-s-timings-at-configu.patch \
+        0022-ipa-simple-agc-Support-manual-exposure-time-and-anal.patch \
+        0024-software_isp-Gather-focus-statistics-over-a-window-t.patch \
+        0025-ipa-simple-Focus-and-meter-on-the-application-s-wind.patch \
+        0026-ipa-simple-af-Support-pausing-continuous-autofocus.patch \
+        0035-ipa-simple-af-Scan-less.patch \
+        0040-ipa-simple-af-Settle-less-for-fine-steps.patch \
+        0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch; do
+        patch -Np1 <"../$p"
+    done
     printf '%s\n' "$pkgver" >.tarball-version
 }
 

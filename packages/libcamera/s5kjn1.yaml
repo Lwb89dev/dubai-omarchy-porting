@@ -38,4 +38,7 @@ algorithms:
                 -0.15696, -0.51345,  1.67041 ]
   - Adjust:
   - Agc:
+  - Af:
+      coarseSteps: 8
+      fineSteps: 32
 ...

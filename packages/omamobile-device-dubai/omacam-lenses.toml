@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT
+# Camera lens table for Motorola Edge 30 (dubai) with omacam.
+# Mainline DTS exposes gc02m1b (2 MP monochrome depth, cci1@37) before
+# s5kjn1 (50 MP RGB main, cci0@56); without this table, omacam picks gc02m1b.
+# Preview 1920x1440 (42.2 MiB CMA) and still 4080x3072 (96.0 MiB CMA) fit
+# inside the default 136 MiB CMA pool. ov50a (ultrawide) and ov32b40 (front)
+# are not yet ported to mainline Linux.
+device = "dubai"
+max_zoom = 10.0
+
+[[lens]]
+role = "main"
+name = "Main"
+id = "/base/soc@0/cci@ac4a000/i2c-bus@1/sensor@56"
+zoom = 1.0
+f_number = 1.8
+focal_length_35mm = 24
+focal_length_mm = 4.5
+base_iso = 50
+preview = [1920, 1440]
+still = [4080, 3072]
+autofocus = true

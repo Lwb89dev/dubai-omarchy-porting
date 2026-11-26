@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
-# Source: pmaports device-motorola-dubai 2-r0; sensor orientation only.
-SUBSYSTEM=="misc", KERNEL=="fastrpc-*", ENV{ACCEL_MOUNT_MATRIX}+="-1, 0, 0; 0, -1, 0; 0, 0, -1"
+# Source: pmaports device-motorola-dubai 2-r0, with +Z preserved so screen-up
+# reads +9.8 m/s^2 (proper 180 deg Z rotation, det=+1, avoiding face-down).
+SUBSYSTEM=="misc", KERNEL=="fastrpc-*", ENV{ACCEL_MOUNT_MATRIX}+="-1, 0, 0; 0, -1, 0; 0, 0, 1"
 # iio-sensor-proxy 3.9's upstream rule advertises light and compass only.
 SUBSYSTEM=="misc", KERNEL=="fastrpc-adsp", ENV{IIO_SENSOR_PROXY_TYPE}+="ssc-accel"

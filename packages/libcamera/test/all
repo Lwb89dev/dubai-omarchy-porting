@@ -4,14 +4,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 bash -n PKGBUILD
-grep -q 'pkgrel=4.25' PKGBUILD
+grep -q 'pkgrel=4.26' PKGBUILD
 grep -q 'apps-output-dng=disabled' PKGBUILD
 grep -q 'ipas=simple' PKGBUILD
 grep -q 'pipelines=simple' PKGBUILD
 grep -q 'werror=false' PKGBUILD
 grep -q '_pick libcamera-tools usr/bin/libcamera-bug-report' PKGBUILD
+grep -q '0005-libcamera-software_isp-add-contrast-autofocus.patch' PKGBUILD
+grep -q '0016-software_isp-debayer_egl-Destroy-the-EGL-context-whe.patch' PKGBUILD
+grep -q '0040-ipa-simple-af-Settle-less-for-fine-steps.patch' PKGBUILD
 grep -q '0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch' PKGBUILD
 grep -q 'install -Dm644 s5kjn1.yaml "$pkgdir/usr/share/libcamera/ipa/simple/s5kjn1.yaml"' PKGBUILD
+grep -q 'coarseSteps: 8' s5kjn1.yaml
 grep -q 'REGISTER_CAMERA_SENSOR_HELPER("gc02m1b"' dubai-sensor-helpers.patch
 grep -q 'AnalogueGainLinear{ 1, 0, 0, 1024 }' dubai-sensor-helpers.patch
 grep -q 'REGISTER_CAMERA_SENSOR_HELPER("s5kjn1"' dubai-sensor-helpers.patch
@@ -26,9 +30,19 @@ mapfile -t sums < <(awk '
         if (/\)$/) in_sums=0
     }
 ' PKGBUILD)
-[[ ${#sums[@]} -eq 3 ]]
-printf '%s  %s\n' \
-    "${sums[0]}" dubai-sensor-helpers.patch \
-    "${sums[1]}" 0005-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch \
-    "${sums[2]}" s5kjn1.yaml | sha256sum -c
-echo 'ok libcamera carries only the dubai gain models, simple AGC gain step, and s5kjn1 tuning'
+mapfile -t files < <(awk '
+    /^source=\(/ { in_src=1 }
+    in_src {
+        end = /\)$/
+        for (i=1; i<=NF; i++) {
+            gsub(/source=\(|\)/, "", $i)
+            if ($i ~ /\.(patch|yaml)$/) print $i
+        }
+        if (end) in_src=0
+    }
+' PKGBUILD)
+[[ ${#sums[@]} -eq 23 && ${#files[@]} -eq 23 ]]
+for i in "${!sums[@]}"; do
+    printf '%s  %s\n' "${sums[$i]}" "${files[$i]}"
+done | sha256sum -c
+echo 'ok libcamera carries dubai gain models, simple AGC gain step, contrast AF, EGL cleanup, and s5kjn1 tuning'
